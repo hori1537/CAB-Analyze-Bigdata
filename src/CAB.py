@@ -406,8 +406,8 @@ def learning():
         gridsearch_predict_stdtoraw_df.to_csv( 'results' + os.sep + theme_name +  os.sep + 'sklearn'+ os.sep + 'predict_stdtoraw'+ os.sep
                                      + str(model_name) + '_predict.csv')
         '''
-        gridsearch_predict_raw_df.to_csv(     os.path.join('results', theme_name, 'sklearn', 'predict_raw', str(model_name), '_predict.csv'))
-        gridsearch_predict_stdtoraw_df.to_csv(os.path.join('results', theme_name, 'sklearn', 'predict_stdtoraw', str(model_name), '_predict.csv'))
+        gridsearch_predict_raw_df.to_csv(     os.path.join('results', theme_name, 'sklearn', 'predict_raw', str(model_name)+ '_predict.csv'))
+        gridsearch_predict_stdtoraw_df.to_csv(os.path.join('results', theme_name, 'sklearn', 'predict_stdtoraw', str(model_name)+ '_predict.csv'))
 
 
         return
@@ -468,8 +468,8 @@ def learning():
             except:
                 #xgb.to_graphviz(model,  out_file=dot_data, feature_names = list_feature_names[in_n].replace('/','_'))
                 xgb.to_graphviz(model,  out_file=dot_data, feature_names = list_feature_names[in_n])
-            graph = pydotplus.graph_from_dot_data(dot_data.getvalue())
 
+            graph = pydotplus.graph_from_dot_data(dot_data.getvalue())
             # refer from https://qiita.com/wm5775/items/1062cc1e96726b153e28
             # the Graphviz2.38 dot.exe
             graph.progs = {'dot':graphviz_path}
@@ -477,8 +477,7 @@ def learning():
             #graph.write_pdf('results' + os.sep + theme_name +  os.sep + 'sklearn'+ os.sep + 'tree'+ os.sep
             #                 + model_name + '.pdf')
 
-            graph.write_pdf(os.path.join('results', theme_name, 'sklearn', 'tree', model_name, '.pdf')
-
+            graph.write_pdf(os.path.join('results', theme_name, 'sklearn', 'tree', str(model_name) + '.pdf'))
             pass
 
             return
@@ -506,7 +505,7 @@ def learning():
             #plt.show()
             #plt.savefig('results' + os.sep + theme_name +  os.sep + 'sklearn'+ os.sep + 'importance' + os.sep
             #             + str(model_name)   + '.png', dpi = 240)
-            plt.savefig(os.path.join('results', theme_name, 'sklearn', 'importance', str(model_name), '.png'), dpi = 240)
+            plt.savefig(os.path.join('results', theme_name, 'sklearn', 'importance', str(model_name)+ '.png'), dpi = 240)
             return
 
 
@@ -526,7 +525,7 @@ def learning():
             plt.legend(loc = 4)
 
             #plt.savefig('results' + os.sep + theme_name +  os.sep + 'sklearn'+ os.sep + 'scatter_diagram' + os.sep +  str(model_name) + '_scatter.png')
-            plt.savefig(os.path.join('results', theme_name, 'sklearn', 'scatter_diagram',  str(model_name), '_scatter.png'))
+            plt.savefig(os.path.join('results', theme_name, 'sklearn', 'scatter_diagram',  str(model_name) + '_scatter.png'))
 
 
 
@@ -609,12 +608,12 @@ def learning():
         #chkprint(model_name)
 
 
-        train_result_raw_df.to_csv(os.path.join('results', theme_name, 'sklearn', 'traintest_raw', str(model_name), '_train_raw.csv'))
-        test_result_raw_df.to_csv(os.path.join('results', theme_name, 'sklearn', 'traintest_raw', str(model_name), '_test_raw.csv'))
-        train_result_std_df.to_csv(os.path.join('results', theme_name, 'sklearn', 'traintest_std', str(model_name), '_train_std.csv'))
-        test_result_std_df.to_csv(os.path.join('results', theme_name, 'sklearn', 'traintest_std', str(model_name), '_test_std.csv'))
-        train_result_stdtoraw_df.to_csv(os.path.join('results', theme_name, 'sklearn', 'traintest_stdtoraw', str(model_name),  '_train_stdtoraw.csv'))
-        test_result_stdtoraw_df.to_csv(os.path.join('results', theme_name, 'sklearn', 'traintest_stdtoraw', str(model_name),  '_test_stdtoraw.csv'))
+        train_result_raw_df.to_csv(os.path.join('results', theme_name, 'sklearn', 'traintest_raw', str(model_name) + '_train_raw.csv'))
+        test_result_raw_df.to_csv(os.path.join('results', theme_name, 'sklearn', 'traintest_raw', str(model_name) + '_test_raw.csv'))
+        train_result_std_df.to_csv(os.path.join('results', theme_name, 'sklearn', 'traintest_std', str(model_name) + '_train_std.csv'))
+        test_result_std_df.to_csv(os.path.join('results', theme_name, 'sklearn', 'traintest_std', str(model_name) + '_test_std.csv'))
+        train_result_stdtoraw_df.to_csv(os.path.join('results', theme_name, 'sklearn', 'traintest_stdtoraw', str(model_name) +  '_train_stdtoraw.csv'))
+        test_result_stdtoraw_df.to_csv(os.path.join('results', theme_name, 'sklearn', 'traintest_stdtoraw', str(model_name) +  '_test_stdtoraw.csv'))
 
         save_scatter_diagram(model_raw, model_name + '_raw')
         save_scatter_diagram(model_std, model_name + '_std')
@@ -628,13 +627,13 @@ def learning():
             model_intercept_raw_df  = pd.DataFrame(model_raw.intercept_)
             model_coef_raw_df       = pd.DataFrame(model_raw.coef_)
             model_parameter_raw_df  = pd.concat([model_intercept_raw_df, model_coef_raw_df])
-            model_parameter_raw_df.to_csv(os.path.join()'results', theme_name, 'sklearn', 'parameter_raw', str(model_name), '_parameter.csv')
+            model_parameter_raw_df.to_csv(os.path.join('results', theme_name, 'sklearn', 'parameter_raw', str(model_name)+ '_parameter.csv'))
 
         if hasattr(model_std, 'intercept_') == True &  hasattr(model_std, 'coef_') == True:
             model_intercept_std_df  = pd.DataFrame(model_std.intercept_)
             model_coef_std_df       = pd.DataFrame(model_std.coef_)
             model_parameter_std_df  = pd.concat([model_intercept_std_df, model_coef_std_df])
-            model_parameter_std_df.to_csv(os.path.join()'results', theme_name, 'sklearn', 'parameter_std', str(model_name), '_parameter.csv')
+            model_parameter_std_df.to_csv(os.path.join('results', theme_name, 'sklearn', 'parameter_std', str(model_name)+ '_parameter.csv'))
 
         if hasattr(model_raw, 'tree_') == True:
             save_tree_topdf(model_raw, model_name)
@@ -663,7 +662,7 @@ def learning():
             #plt.show()
             #plt.savefig('results' + os.sep + theme_name +  os.sep + 'sklearn'+ os.sep + 'importance'+ os.sep
             #             + str(model_name)  + '.png', dpi = 240)
-            plt.savefig(os.path.join('results', theme_name, 'sklearn', 'importance', str(model_name), '.png'), dpi = 240)
+            plt.savefig(os.path.join('results', theme_name, 'sklearn', 'importance', str(model_name)+ '.png'), dpi = 240)
 
 
         if hasattr(model_raw, 'estimators_') == True:
@@ -773,7 +772,7 @@ def learning():
                 optimized_result_df = pd.concat([model_name_df, optimized_input_df, optimized_output_df], axis =1)
                 #optimized_result_df.to_csv('results' + os.sep + theme_name +  os.sep + 'sklearn'+ os.sep + 'bayesian_opt' + os.sep
                 #                     + str(model_name) + '_bayesian_result.csv')
-                optimized_result_df.to_csv(os.path.join('results', theme_name, 'sklearn', 'bayesian_opt', str(model_name), '_bayesian_result.csv'))
+                optimized_result_df.to_csv(os.path.join('results', theme_name, 'sklearn', 'bayesian_opt', str(model_name)+ '_bayesian_result.csv'))
 
                 allmodel_bayesian_opt_df = pd.concat([allmodel_bayesian_opt_df, optimized_result_df])
 
