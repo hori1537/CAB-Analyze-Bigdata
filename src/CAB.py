@@ -357,9 +357,7 @@ def learning():
     def gridsearch_predict(model_raw,model_std, model_name):
         start_time = time.time()
 
-
         gridsearch_predict_raw_df   = pd.DataFrame(model_raw.predict(gridsearch_input_raw), columns = list_predict_feature_names[out_n])
-
         gridsearch_predict_std_df   = pd.DataFrame(model_std.predict(gridsearch_input_std), columns = list_predict_feature_names[out_n])
         gridsearch_predict_stdtoraw_df       = pd.DataFrame(list_sc_model[out_n].inverse_transform(gridsearch_predict_std_df), columns = list_predict_feature_names[out_n])
 
@@ -370,7 +368,6 @@ def learning():
 
         gridsearch_predict_raw_df.to_csv(     parent_path / 'results' / theme_name / 'sklearn' / 'predict_raw' / (str(model_name) + '_predict.csv'))
         gridsearch_predict_stdtoraw_df.to_csv(parent_path / 'results' / theme_name / 'sklearn' / 'predict_stdtoraw' / (str(model_name)+ '_predict.csv'))
-
 
         return
 
@@ -417,9 +414,7 @@ def learning():
 
 
     def save_regression(model_raw, model_std, model_name):
-
         def save_tree_topdf(model, model_name):
-
             dot_data = StringIO()
             try:
                 sklearn.tree.export_graphviz(model, out_file=dot_data, feature_names = list_feature_names[in_n])
@@ -888,8 +883,8 @@ def learning():
         max_iter = 1000
 
         model = MultiOutputRegressor(linear_model.SGDRegressor(max_iter = max_iter))
-        model_name = 'MultiOutput Stochastic Gradient Descent_'
-        model_name += 'max_iter_'+str(max_iter)
+        model_name = 'MO_SGD_'
+        model_name += 'max_i_'+str(max_iter)
 
         fit_model_std_raw(model, model_name)
         Multi_SGD_model = model
@@ -901,8 +896,8 @@ def learning():
         C_= 1
 
         model = MultiOutputRegressor(svm.SVR(kernel = kernel_, C = C_))
-        model_name = 'MultiOutput SupportVectorRegressor_'
-        model_name += 'kernel_'+str(kernel_)
+        model_name = 'MO_SVR_'
+        model_name += 'k_'+str(kernel_)
         model_name += 'C_'+str(C_)
 
         fit_model_std_raw(model, model_name)
@@ -917,7 +912,7 @@ def learning():
         for alpha_ in [0.01, 0.1, 1.0] :
             model = linear_model.Ridge(alpha = alpha_)
             model_name = 'Ridge_'
-            model_name += 'alpha_'+str(alpha_)
+            model_name += 'a_'+str(alpha_)
 
             fit_model_std_raw(model, model_name)
 
@@ -927,8 +922,8 @@ def learning():
         ##################### Regression of KernelRidge #####################
         alpha_ = 1.0
         model = KernelRidge(alpha=alpha_, kernel='rbf')
-        model_name = 'KernelRidge_'
-        model_name += 'alpha_'+str(alpha_)
+        model_name = 'KRidge_'
+        model_name += 'a_'+str(alpha_)
 
         fit_model_std_raw(model, model_name)
 
@@ -940,7 +935,7 @@ def learning():
         for alpha_ in [0.01, 0.1, 1.0] :
             model = linear_model.Lasso(alpha = alpha_)
             model_name = 'Lasso_'
-            model_name += 'alpha_'+str(alpha_)
+            model_name += 'a_'+str(alpha_)
 
             fit_model_std_raw(model, model_name)
 
@@ -953,9 +948,9 @@ def learning():
         for alpha_, l1_ratio_ in itertools.product(alpha_, l1_ratio_):
 
             model = linear_model.ElasticNet(alpha=alpha_, l1_ratio = l1_ratio_)
-            model_name = 'ElasticNet_'
-            model_name += 'alpha_'+str(alpha_)
-            model_name += 'l1_ratio_'+str(l1_ratio_)
+            model_name = 'EN_'
+            model_name += 'a_'+str(alpha_)
+            model_name += 'l1_r_'+str(l1_ratio_)
 
             fit_model_std_raw(model, model_name)
 
@@ -965,8 +960,8 @@ def learning():
         max_iter_ = 1000
 
         model = linear_model.MultiTaskLassoCV()
-        model_name = 'MultiTaskLasso_'
-        model_name += 'max_iter_'+str(max_iter)
+        model_name = 'MTLasso_'
+        model_name += 'max_i_'+str(max_iter)
 
         fit_model_std_raw(model, model_name)
 
@@ -985,7 +980,7 @@ def learning():
 
         ##################### Regression of BayesianRidge #####################
         model = MultiOutputRegressor(linear_model.BayesianRidge())
-        model_name = 'MultiOutput BayesianRidge_'
+        model_name = 'MO_BRidge_'
 
         fit_model_std_raw(model, model_name)
 
@@ -1060,8 +1055,8 @@ def learning():
         tmp_r2_score = 0
         for max_depth in [7,10]:
             model = sklearn.tree.DecisionTreeRegressor(max_depth = max_depth)
-            model_name = 'DecisionTreeRegressor_'
-            model_name += 'max_depth_'+str(max_depth)
+            model_name = 'DeciTree_'
+            model_name += 'max_d_'+str(max_depth)
 
             fit_model_std_raw(model, model_name)
 
@@ -1071,8 +1066,8 @@ def learning():
         for max_depth in [3,5,9]:
 
             model = MultiOutputRegressor(sklearn.tree.DecisionTreeRegressor(max_depth = max_depth))
-            model_name = 'MultiOutput DecisionTreeRegressor_'
-            model_name += 'max_depth_' + str(max_depth)
+            model_name = 'MO_DeciTree_'
+            model_name += 'max_d_' + str(max_depth)
             fit_model_std_raw(model, model_name)
             '''
             if r2_score(model_std.predict(test_input_std), test_output_std) > tmp_r2_score:
@@ -1085,9 +1080,9 @@ def learning():
         for max_depth in [3,5,7,9,11]:
             model = sklearn.ensemble.RandomForestRegressor(max_depth = max_depth)
             model_name = ''
-            model_name += 'RandomForestRegressor_'
+            model_name += 'RandForest_'
             #model_name += get_variablename(max_depth)
-            model_name += 'max_depth_'+str(max_depth)
+            model_name += 'max_d_'+str(max_depth)
 
             fit_model_std_raw(model, model_name)
             '''
@@ -1121,12 +1116,12 @@ def learning():
 
             model = MultiOutputRegressor(xgb.XGBRegressor(**xgb_params))
 
-            model_name = 'MultiOutput-XGBoost'
-            model_name += 'min_child_weight_'+str(estimator__min_child_weight)
-            model_name += 'subsample_'+str(estimator__subsample)
-            model_name += 'learning_rate_'+str(estimator__learning_rate)
-            model_name += 'max_depth_'+str(estimator__max_depth)
-            model_name += 'n_estimators_'+str(estimator__n_estimators)
+            model_name = 'MO-XGB'
+            model_name += 'm_c_w_'+str(estimator__min_child_weight)
+            model_name += 'ss_'+str(estimator__subsample)
+            model_name += 'l_r_'+str(estimator__learning_rate)
+            model_name += 'm_d_'+str(estimator__max_depth)
+            model_name += 'n_es_'+str(estimator__n_estimators)
 
             fit_model_std_raw(model, model_name)
             '''
@@ -1135,6 +1130,7 @@ def learning():
                 Xgboost_model  = model
                 Xgboost_model_name = model_name
             '''
+
         allmodel_r2_score_list = [
             [LinearRegression_model_name, LinearRegression_model_name],
             [Multi_SGD_model_name, Multi_SGD_model]
@@ -1149,6 +1145,7 @@ def learning():
         allmodel_bayesian_opt_df.to_csv(os.path.join(parent_path, 'results', theme_name, 'bayesian_op.csv'))
         #######################################################
 
+        print('finish sklearn')
 
         '''
         ################# importances feature by XGBOOST ######
