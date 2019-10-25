@@ -2,8 +2,8 @@
 echo プログラム開始
 
 
-REM graphvizの存在確認
-SET filename_graphviz="%USERPROFILE%\Desktop\graphviz\release\bin\dot.exe"
+echo graphvizの存在確認
+SET filename_graphviz="%CD%\release\bin\dot.exe"
 
 IF EXIST %filename_graphviz% (GOTO GRAPHVIZ_EXIST) ELSE GOTO GRAPHVIZ_NOT_EXIST
 
@@ -15,23 +15,12 @@ GOTO GRAPHVIZ_END
 :GRAPHVIZ_NOT_EXIST
 ECHO "graphvizが存在しません。ダウンロードします"
 
-REM 7zaのダウンロード
-REM mkdir 7z
-REMcd 7z
-REMbitsadmin /transfer doanload_7za /PRIORITY FOREGROUND https://github.com/hori1537/CAB-Analyze-Bigdata/raw/master/7za/7za.exe %USERPROFILE%\Desktop\7z\7za.exe
-echo Copyright (C) 2019 Igor Pavlov. OSDN Project translated.
-REM TIMEOUT /T 3
-
-
-REM graphvizのダウンロード
-cd %USERPROFILE%\Desktop
-mkdir graphviz
-cd graphviz
-bitsadmin /transfer doanload_graphviz /PRIORITY FOREGROUND https://graphviz.gitlab.io/_pages/Download/windows/graphviz-2.38.zip %USERPROFILE%\Desktop\graphviz\graphviz-2.38.zip
-
+echo graphvizのダウンロード
+bitsadmin /transfer doanload_graphviz /PRIORITY FOREGROUND https://graphviz.gitlab.io/_pages/Download/windows/graphviz-2.38.zip %CD%\graphviz-2.38.zip
 
 echo graphvizを解凍します
-7za\7za.exe x %USERPROFILE%\Desktop\graphviz\graphviz-2.38.zip
+cd %~dp0
+.\7za\7za.exe x graphviz-2.38.zip
 echo Copyright (C) 2019 Igor Pavlov. OSDN Project translated.
 TIMEOUT /T 3
 
@@ -40,8 +29,8 @@ REM rd /s /q %homedrive%\7z
 TIMEOUT /T 3
 
 
-REM ダウンロードしたgraphviz-2.38.zipの削除
-del /s /q %USERPROFILE%\Desktop\graphviz\graphviz-2.38.zip
+echo ダウンロードしたgraphviz-2.38.zipを削除します
+del /s /q graphviz-2.38.zip
 TIMEOUT /T 3
 
 GOTO GRAPHVIZ_END

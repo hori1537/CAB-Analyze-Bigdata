@@ -25,6 +25,8 @@ from sklearn.model_selection import train_test_split
 import numpy as np
 import numpy
 
+from pathlib import Path
+
 import pandas as pd
 import math
 import time
@@ -83,11 +85,36 @@ random.seed(1)
 # Graphviz path
 #http://spacegomi.hatenablog.com/entry/2018/01/26/170721
 
-desktop_path = os.getenv('HOMEDRIVE') + os.getenv('HOMEPATH') + '\\Desktop'
-graphviz_path = desktop_path + '\\graphviz\\release\\bin\\dot.exe'
-graphviz_path = os.path.join(desktop_path, 'graphviz', 'release', 'bin', 'dot.exe')
+#current_path = os.getcwd()
+#desktop_path = os.getenv('HOMEDRIVE') + os.getenv('HOMEPATH') + '\\Desktop'
+current_path = Path.cwd()
+program_path = Path(__file__).parent.parent
+graphviz_path = program_path / 'release' / 'bin' / 'dot.exe'
+graphviz_path =graphviz_path.resolve()
+print(program_path)
 
-columns_results = ['model_name', 'train_model_mse', 'train_model_rmse', 'test_model_mse', 'test_model_rmse', 'train_model_score', 'test_model_score']
+parent_path = program_path.parent.resolve()
+print('parent_path', parent_path)
+print('parent_path.resolve()',parent_path.resolve())
+
+theme_name = 'Test'
+model_name = 'eiorj'
+
+aaa = parent_path / 'results' / theme_name / 'sklearn' / 'tree' / (str(model_name) + '.pdf')
+print('aaa', aaa)
+
+data_path           = parent_path / 'data'
+data_processed_path = data_path / 'processed'
+
+
+columns_results = [ 'model_name',
+                    'train_model_mse',
+                    'train_model_rmse',
+                    'test_model_mse',
+                    'test_model_rmse',
+                    'train_model_score',
+                    'test_model_score']
+
 allmodel_results_raw_df = pd.DataFrame(columns = columns_results)
 allmodel_results_std_df = pd.DataFrame(columns = columns_results)
 
@@ -106,13 +133,13 @@ def chk_mkdir(paths):
     return
 
 def choose_csv():
-    tk_c = tkinter.Tk()
-    current_dir = os.getcwd()
+    #tk_c = tkinter.Tk()
 
-    csv_file_path = tkinter.filedialog.askopenfilename(initialdir = current_dir,
+    csv_file_path = tkinter.filedialog.askopenfilename(initialdir = data_processed_path,
     title = 'choose the csv', filetypes = [('csv file', '*.csv')])
 
     t_csv.set(csv_file_path)
+    t_theme_name.set(Path(csv_file_path).parent.name)
 
 
 def learning():
@@ -144,48 +171,24 @@ def learning():
                 os.mkdir(path_name)
         return
 
-
-    paths = [ 'results',
-            'results' + os.sep + theme_name,
-            'results' + os.sep + theme_name +  os.sep + 'sklearn',
-            'results' + os.sep + theme_name +  os.sep + 'sklearn'+ os.sep + 'tree',
-            'results' + os.sep + theme_name +  os.sep + 'sklearn'+ os.sep + 'importance',
-            'results' + os.sep + theme_name +  os.sep + 'sklearn'+ os.sep + 'parameter_raw',
-            'results' + os.sep + theme_name +  os.sep + 'sklearn'+ os.sep + 'parameter_std',
-            'results' + os.sep + theme_name +  os.sep + 'sklearn'+ os.sep + 'predict_raw',
-            'results' + os.sep + theme_name +  os.sep + 'sklearn'+ os.sep + 'predict_stdtoraw',
-            'results' + os.sep + theme_name +  os.sep + 'sklearn'+ os.sep + 'traintest_raw',
-            'results' + os.sep + theme_name +  os.sep + 'sklearn'+ os.sep + 'traintest_std',
-            'results' + os.sep + theme_name +  os.sep + 'sklearn'+ os.sep + 'traintest_stdtoraw',
-            'results' + os.sep + theme_name +  os.sep + 'sklearn'+ os.sep + 'scatter_diagram',
-            'results' + os.sep + theme_name +  os.sep + 'sklearn'+ os.sep + 'bayesian_opt',
-            'results' + os.sep + theme_name +  os.sep + 'deeplearning',
-            'results' + os.sep + theme_name +  os.sep + 'deeplearning'+ os.sep + 'h5',
-            'results' + os.sep + theme_name +  os.sep + 'deeplearning'+ os.sep + 'traintest',
-            'results' + os.sep + theme_name +  os.sep + 'deeplearning'+ os.sep + 'predict']
-
-    paths = [ 'results',
-              os.path.join('results' , theme_name),
-              os.path.join('results' , theme_name , 'sklearn'),
-              os.path.join('results' , theme_name , 'sklearn', 'tree'),
-              os.path.join('results' , theme_name , 'sklearn', 'importance'),
-              os.path.join('results' , theme_name , 'sklearn', 'parameter_raw'),
-              os.path.join('results' , theme_name , 'sklearn', 'parameter_std'),
-              os.path.join('results' , theme_name , 'sklearn', 'predict_raw'),
-              os.path.join('results' , theme_name , 'sklearn', 'predict_stdtoraw'),
-              os.path.join('results' , theme_name , 'sklearn', 'traintest_raw'),
-              os.path.join('results' , theme_name , 'sklearn', 'traintest_std'),
-              os.path.join('results' , theme_name , 'sklearn', 'traintest_stdtoraw'),
-              os.path.join('results' , theme_name , 'sklearn', 'scatter_diagram'),
-              os.path.join('results' , theme_name , 'sklearn', 'bayesian_opt'),
-              os.path.join('results' , theme_name , 'deeplearning'),
-              os.path.join('results' , theme_name , 'deeplearning', 'h5'),
-              os.path.join('results' , theme_name , 'deeplearning', 'traintest'),
-              os.path.join('results' , theme_name , 'deeplearning', 'predict')]
-
-
-
-
+    paths = [ parent_path/ 'results' ,
+              parent_path/ 'results' / theme_name,
+              parent_path/ 'results' / theme_name / 'sklearn',
+              parent_path/ 'results' / theme_name / 'sklearn' / 'tree',
+              parent_path/ 'results' / theme_name / 'sklearn' / 'importance',
+              parent_path/ 'results' / theme_name / 'sklearn' / 'parameter_raw',
+              parent_path/ 'results' / theme_name / 'sklearn' / 'parameter_std',
+              parent_path/ 'results' / theme_name / 'sklearn' / 'predict_raw',
+              parent_path/ 'results' / theme_name / 'sklearn' / 'predict_stdtoraw',
+              parent_path/ 'results' / theme_name / 'sklearn' / 'traintest_raw',
+              parent_path/ 'results' / theme_name / 'sklearn' / 'traintest_std',
+              parent_path/ 'results' / theme_name / 'sklearn' / 'traintest_stdtoraw',
+              parent_path/ 'results' / theme_name / 'sklearn' / 'scatter_diagram',
+              parent_path/ 'results' / theme_name / 'sklearn' / 'bayesian_opt',
+              parent_path/ 'results' / theme_name / 'deeplearning',
+              parent_path/ 'results' / theme_name / 'deeplearning' / 'h5',
+              parent_path/ 'results' / theme_name / 'deeplearning' / 'traintest',
+              parent_path/ 'results' / theme_name / 'deeplearning' / 'predict']
 
     chk_mkdir(paths)
 
@@ -345,9 +348,7 @@ def learning():
 
     plt.figure(figsize=(5,5))
     sns.heatmap(in_output_raw_df.corr(), cmap = 'Oranges',annot=False, linewidths = .5)
-    #plt.savefig('results' + os.sep + theme_name +  os.sep + 'sklearn'+ os.sep +'correlation_coefficient.png', dpi = 240)
-    plt.savefig(os.path.join('results' , theme_name , 'sklearn','correlation_coefficient.png'), dpi = 240)
-
+    plt.savefig(parent_path / 'results' /  theme_name / 'sklearn' / 'correlation_coefficient.png', dpi = 240)
     #######  extract descision tree   ################################################
 
     def tree_to_code(tree, feature_names):
@@ -366,15 +367,9 @@ def learning():
                 if tree_.feature[node] != _tree.TREE_UNDEFINED:
                     name = feature_name[node]
                     threshold = tree_.threshold[node]
-                    #print("{}if {} <= {}:".format(indent, name, threshold))
-                    #print("{}if {} <= {}:".format(indent, name, threshold), file=f)
                     recurse(tree_.children_left[node], depth + 1)
-                    #print("{}else:  # if {} > {}".format(indent, name, threshold), file=f)
-                    #print("{}else:  # if {} > {}".format(indent, name, threshold))
                     recurse(tree_.children_right[node], depth + 1)
                 else:
-                    #print("{}return {}".format(indent, tree_.value[node]))
-                    #print("{}return {}".format(indent, tree_.value[node]), file=f)
                     pass
 
         recurse(0, 1)
@@ -390,24 +385,11 @@ def learning():
 
         end_time = time.time()
         total_time = end_time - start_time
-        #print(model_name, ' ' , total_time)
-
-        #gridsearch_predict_df['Tmax-']      = gridsearch_predict_df.max(axis = 1)
-        #gridsearch_predict_df['Tdelta-']    = gridsearch_predict_df.min(axis = 1)
-        #gridsearch_predict_df['Tmin-']      = gridsearch_predict_df['Tmax-'] - gridsearch_predict_df['Tdelta-']
-
-
         gridsearch_predict_raw_df       = pd.concat([gridsearch_input_raw_df, gridsearch_predict_raw_df], axis = 1)
         gridsearch_predict_stdtoraw_df  = pd.concat([gridsearch_input_std_df, gridsearch_predict_stdtoraw_df], axis = 1)
 
-        '''
-        gridsearch_predict_raw_df.to_csv( 'results' + os.sep + theme_name +  os.sep + 'sklearn'+ os.sep + 'predict_raw'+ os.sep
-                                     + str(model_name) + '_predict.csv')
-        gridsearch_predict_stdtoraw_df.to_csv( 'results' + os.sep + theme_name +  os.sep + 'sklearn'+ os.sep + 'predict_stdtoraw'+ os.sep
-                                     + str(model_name) + '_predict.csv')
-        '''
-        gridsearch_predict_raw_df.to_csv(     os.path.join('results', theme_name, 'sklearn', 'predict_raw', str(model_name)+ '_predict.csv'))
-        gridsearch_predict_stdtoraw_df.to_csv(os.path.join('results', theme_name, 'sklearn', 'predict_stdtoraw', str(model_name)+ '_predict.csv'))
+        gridsearch_predict_raw_df.to_csv(     parent_path / 'results' / theme_name / 'sklearn' / 'predict_raw' / (str(model_name) + '_predict.csv'))
+        gridsearch_predict_stdtoraw_df.to_csv(parent_path / 'results' / theme_name / 'sklearn' / 'predict_stdtoraw' / (str(model_name)+ '_predict.csv'))
 
 
         return
@@ -439,9 +421,6 @@ def learning():
     '''
 
     #########   regression by the scikitlearn model ###############
-
-
-
     def fit_model_std_raw(model, model_name):
         print(model_name)
         start_time = time.time()
@@ -463,10 +442,8 @@ def learning():
 
             dot_data = StringIO()
             try:
-                #sklearn.tree.export_graphviz(model, out_file=dot_data, feature_names = list_feature_names[in_n].replace('/','_'))
                 sklearn.tree.export_graphviz(model, out_file=dot_data, feature_names = list_feature_names[in_n])
             except:
-                #xgb.to_graphviz(model,  out_file=dot_data, feature_names = list_feature_names[in_n].replace('/','_'))
                 xgb.to_graphviz(model,  out_file=dot_data, feature_names = list_feature_names[in_n])
 
             graph = pydotplus.graph_from_dot_data(dot_data.getvalue())
@@ -476,8 +453,13 @@ def learning():
 
             #graph.write_pdf('results' + os.sep + theme_name +  os.sep + 'sklearn'+ os.sep + 'tree'+ os.sep
             #                 + model_name + '.pdf')
+            #graph.write_pdf(model_name + '.pdf')
 
-            graph.write_pdf(os.path.join('results', theme_name, 'sklearn', 'tree', str(model_name) + '.pdf'))
+            #graph.write_pdf(os.path.join(str(parent_path.resolve()), 'results', theme_name, 'sklearn', 'tree', str(model_name) + '.pdf'))
+            #tmp_path = (parent_path / 'results' / theme_name / 'sklearn' / 'tree' / (str(model_name) + '.pdf')).name
+            #graph.write_pdf(tmp_path)
+            #graph.write_pdf(r'C:\Users\1310202\Desktop\20180921\horie\data_science\データ解析\CAB-Analyze-Bigdata-master\new\src\results\Bushing\sklearn\tree\DecisionTreeRegressor_max_depth_7.pdf')
+
             pass
 
             return
@@ -502,10 +484,7 @@ def learning():
             plt.rcParams["font.size"] = 12
 
             plt.title("importances-" + model_name)
-            #plt.show()
-            #plt.savefig('results' + os.sep + theme_name +  os.sep + 'sklearn'+ os.sep + 'importance' + os.sep
-            #             + str(model_name)   + '.png', dpi = 240)
-            plt.savefig(os.path.join('results', theme_name, 'sklearn', 'importance', str(model_name)+ '.png'), dpi = 240)
+            plt.savefig(parent_path / 'results' / theme_name / 'sklearn' / 'importance' / (str(model_name)+ '.png'), dpi = 240)
             return
 
 
@@ -523,11 +502,7 @@ def learning():
             plt.ylabel('Predicted value')
             plt.scatter(list_test_raw[out_n], pred_test, c = 'lightgreen', label = 'Test', alpha = 0.8)
             plt.legend(loc = 4)
-
-            #plt.savefig('results' + os.sep + theme_name +  os.sep + 'sklearn'+ os.sep + 'scatter_diagram' + os.sep +  str(model_name) + '_scatter.png')
-            plt.savefig(os.path.join('results', theme_name, 'sklearn', 'scatter_diagram',  str(model_name) + '_scatter.png'))
-
-
+            plt.savefig(parent_path / 'results' / theme_name / 'sklearn' / 'scatter_diagram' /  (str(model_name) + '_scatter.png'))
 
         global allmodel_results_raw_df
         global allmodel_results_std_df
@@ -605,19 +580,16 @@ def learning():
         allmodel_results_raw_df = pd.concat([allmodel_results_raw_df, results_raw_df])
         allmodel_results_std_df = pd.concat([allmodel_results_std_df, results_std_df])
 
-        #chkprint(model_name)
+        train_result_raw_df.to_csv(parent_path / 'results' / theme_name / 'sklearn' / 'traintest_raw'/ (str(model_name) + '_train_raw.csv'))
+        test_result_raw_df.to_csv(parent_path / 'results' / theme_name / 'sklearn' / 'traintest_raw'/ (str(model_name) + '_test_raw.csv'))
+        train_result_std_df.to_csv(parent_path / 'results' / theme_name / 'sklearn' / 'traintest_std'/ (str(model_name) + '_train_std.csv'))
+        test_result_std_df.to_csv(parent_path / 'results' / theme_name / 'sklearn' / 'traintest_std'/ (str(model_name) + '_test_std.csv'))
+        train_result_stdtoraw_df.to_csv(parent_path / 'results' / theme_name / 'sklearn' / 'traintest_stdtoraw'/ (str(model_name) +  '_train_stdtoraw.csv'))
+        test_result_stdtoraw_df.to_csv(parent_path / 'results' / theme_name / 'sklearn' / 'traintest_stdtoraw'/ (str(model_name) +  '_test_stdtoraw.csv'))
 
-
-        train_result_raw_df.to_csv(os.path.join('results', theme_name, 'sklearn', 'traintest_raw', str(model_name) + '_train_raw.csv'))
-        test_result_raw_df.to_csv(os.path.join('results', theme_name, 'sklearn', 'traintest_raw', str(model_name) + '_test_raw.csv'))
-        train_result_std_df.to_csv(os.path.join('results', theme_name, 'sklearn', 'traintest_std', str(model_name) + '_train_std.csv'))
-        test_result_std_df.to_csv(os.path.join('results', theme_name, 'sklearn', 'traintest_std', str(model_name) + '_test_std.csv'))
-        train_result_stdtoraw_df.to_csv(os.path.join('results', theme_name, 'sklearn', 'traintest_stdtoraw', str(model_name) +  '_train_stdtoraw.csv'))
-        test_result_stdtoraw_df.to_csv(os.path.join('results', theme_name, 'sklearn', 'traintest_stdtoraw', str(model_name) +  '_test_stdtoraw.csv'))
 
         save_scatter_diagram(model_raw, model_name + '_raw')
         save_scatter_diagram(model_std, model_name + '_std')
-
 
         if hasattr(model_std, 'get_params') == True:
             model_params        = model_std.get_params()
@@ -627,13 +599,13 @@ def learning():
             model_intercept_raw_df  = pd.DataFrame(model_raw.intercept_)
             model_coef_raw_df       = pd.DataFrame(model_raw.coef_)
             model_parameter_raw_df  = pd.concat([model_intercept_raw_df, model_coef_raw_df])
-            model_parameter_raw_df.to_csv(os.path.join('results', theme_name, 'sklearn', 'parameter_raw', str(model_name)+ '_parameter.csv'))
+            model_parameter_raw_df.to_csv(parent_path / 'results' / theme_name / 'sklearn' / 'parameter_raw' / (str(model_name) + '_parameter.csv'))
 
         if hasattr(model_std, 'intercept_') == True &  hasattr(model_std, 'coef_') == True:
             model_intercept_std_df  = pd.DataFrame(model_std.intercept_)
             model_coef_std_df       = pd.DataFrame(model_std.coef_)
             model_parameter_std_df  = pd.concat([model_intercept_std_df, model_coef_std_df])
-            model_parameter_std_df.to_csv(os.path.join('results', theme_name, 'sklearn', 'parameter_std', str(model_name)+ '_parameter.csv'))
+            model_parameter_std_df.to_csv(parent_path / 'results' / theme_name / 'sklearn' / 'parameter_std' / (str(model_name) + '_parameter.csv'))
 
         if hasattr(model_raw, 'tree_') == True:
             save_tree_topdf(model_raw, model_name)
@@ -644,8 +616,6 @@ def learning():
 
             importances = pd.Series(model_raw.feature_importances_)
             importances = np.array(importances)
-            #print(importances)
-            #importances = importances.sort_values()
 
             label       = list_feature_names[in_n]
 
@@ -659,10 +629,7 @@ def learning():
             plt.rcParams["font.size"] = 12
 
             plt.title("importance in the tree " + str(theme_name))
-            #plt.show()
-            #plt.savefig('results' + os.sep + theme_name +  os.sep + 'sklearn'+ os.sep + 'importance'+ os.sep
-            #             + str(model_name)  + '.png', dpi = 240)
-            plt.savefig(os.path.join('results', theme_name, 'sklearn', 'importance', str(model_name)+ '.png'), dpi = 240)
+            plt.savefig(parent_path / 'results' / theme_name / 'sklearn' / 'importance' / (str(model_name) + '.png'), dpi = 240)
 
 
         if hasattr(model_raw, 'estimators_') == True:
@@ -772,7 +739,7 @@ def learning():
                 optimized_result_df = pd.concat([model_name_df, optimized_input_df, optimized_output_df], axis =1)
                 #optimized_result_df.to_csv('results' + os.sep + theme_name +  os.sep + 'sklearn'+ os.sep + 'bayesian_opt' + os.sep
                 #                     + str(model_name) + '_bayesian_result.csv')
-                optimized_result_df.to_csv(os.path.join('results', theme_name, 'sklearn', 'bayesian_opt', str(model_name)+ '_bayesian_result.csv'))
+                optimized_result_df.to_csv(parent_path / 'results' / theme_name / 'sklearn' / 'bayesian_opt' / (str(model_name)+ '_bayesian_result.csv'))
 
                 allmodel_bayesian_opt_df = pd.concat([allmodel_bayesian_opt_df, optimized_result_df])
 
@@ -797,13 +764,17 @@ def learning():
         in_n    = is_inverse_predict        # 0 to 1
         out_n   = not(is_inverse_predict)   # 1 to 0
 
-        #print(in_n)
-        #print(out_n)
-
         direction_name_list = ['normal', 'inverse']
         direction_name      = direction_name_list[inv_]
 
-        columns_results = ['model_name', 'train_model_mse', 'train_model_rmse', 'test_model_mse', 'test_model_rmse', 'train_model_score', 'test_model_score']
+        columns_results = ['model_name',
+                            'train_model_mse',
+                            'train_model_rmse',
+                            'test_model_mse',
+                            'test_model_rmse',
+                            'train_model_score',
+                            'test_model_score']
+
         #allmodel_results_raw_df = pd.DataFrame(columns = columns_results)
         #allmodel_results_std_df = pd.DataFrame(columns = columns_results)
         #allmodel_bayesian_opt_df = pd.DataFrame(columns = list_feature_names[in_n])
@@ -839,17 +810,15 @@ def learning():
         plt.ylabel('Predicted value')
         plt.scatter(list_test_raw[out_n], pred_test, c = 'lightgreen', label = 'Test', alpha = 0.8)
         plt.legend(loc = 4)
+        plt.savefig(parent_path / 'results' / theme_name / 'sklearn' / 'meas_pred.png')
 
-        #plt.savefig('results' + os.sep + theme_name +  os.sep + 'sklearn'+ os.sep +'meas_pred.png')
-        plt.savefig(os.path.join('results', theme_name, 'sklearn', 'meas_pred.png'))
-
-        img1 = Image.open(os.path.join('results', theme_name, 'sklearn', 'meas_pred.png'))
+        img1 = Image.open(parent_path / 'results' / theme_name / 'sklearn' / 'meas_pred.png')
 
         img1_resize = img1.resize((photo_size, photo_size), Image.LANCZOS)
-        img1_resize.save(os.path.join('results', theme_name, 'sklearn', 'meas_pred.png'))
+        img1_resize.save(parent_path / 'results' / theme_name / 'sklearn' / 'meas_pred.png')
 
         global image_predicted_values
-        image_open = Image.open(os.path.join('results', theme_name, 'sklearn', 'meas_pred.png'))
+        image_open = Image.open(parent_path / 'results' / theme_name / 'sklearn' / 'meas_pred.png')
         image_predicted_values = ImageTk.PhotoImage(image_open, master=frame2)
 
         canvas_predicted_values.create_image(int(photo_size/2),int(photo_size/2), image=image_predicted_values)
@@ -864,16 +833,15 @@ def learning():
         plt.rcParams["font.size"] = 12
 
         plt.title("-" + model_name)
-        #plt.show()
-        plt.savefig(os.path.join('results', theme_name, 'sklearn', 'tmp_importances.png'), dpi = 240)
+        plt.savefig(parent_path / 'results' / theme_name / 'sklearn' / 'tmp_importances.png', dpi = 240)
 
-        img2 = Image.open(os.path.join('results', theme_name, 'sklearn', 'tmp_importances.png'))
+        img2 = Image.open(parent_path / 'results' / theme_name / 'sklearn' / 'tmp_importances.png')
 
         img2_resize = img2.resize((photo_size, photo_size), Image.LANCZOS)
-        img2_resize.save(os.path.join('results', theme_name, 'sklearn', 'tmp_importances.png'))
+        img2_resize.save(parent_path / 'results' / theme_name / 'sklearn' / 'tmp_importances.png')
 
         global image_important_variable
-        image_open = Image.open(os.path.join('results', theme_name, 'sklearn', 'tmp_importances.png'))
+        image_open = Image.open(parent_path / 'results' / theme_name / 'sklearn' / 'tmp_importances.png')
         image_important_variable = ImageTk.PhotoImage(image_open, master=frame2)
 
         canvas_important_variable.create_image(int(photo_size/2),int(photo_size/2), image=image_important_variable)
@@ -882,10 +850,10 @@ def learning():
 
         global image_correlation_coefficient
 
-        img3 = Image.open(os.path.join('results', theme_name, 'sklearn', 'correlation_coefficient.png'))
+        img3 = Image.open(parent_path / 'results' / theme_name / 'sklearn' / 'correlation_coefficient.png')
         img3_resize = img3.resize((photo_size, photo_size), Image.LANCZOS)
-        img3_resize.save(os.path.join('results', theme_name, 'sklearn', 'correlation_coefficient.png'))
-        image_open = Image.open(os.path.join('results', theme_name, 'sklearn', 'correlation_coefficient.png'))
+        img3_resize.save(parent_path / 'results' / theme_name / 'sklearn' / 'correlation_coefficient.png')
+        image_open = Image.open(parent_path / 'results' / theme_name / 'sklearn' / 'correlation_coefficient.png')
 
         image_correlation_coefficient = ImageTk.PhotoImage(image_open, master=frame2)
 
@@ -912,7 +880,6 @@ def learning():
             return candidate
 
         if is_gridsearch == True:
-
             all_gridsearch_number = split_num.prod()
             candidate = combination(list_raw_max[in_n], list_raw_min[in_n], split_num)
 
@@ -1197,9 +1164,9 @@ def learning():
 
 
         ################# to csv ##############################
-        allmodel_results_raw_df.to_csv(os.path.join('results', theme_name, 'comparison of methods_raw.csv'))
-        allmodel_results_std_df.to_csv(os.path.join('results', theme_name, 'comparison of methods_std.csv'))
-        allmodel_bayesian_opt_df.to_csv(os.path.join('results', theme_name, 'bayesian_op.csv'))
+        allmodel_results_raw_df.to_csv(os.path.join(parent_path, 'results', theme_name, 'comparison of methods_raw.csv'))
+        allmodel_results_std_df.to_csv(os.path.join(parent_path, 'results', theme_name, 'comparison of methods_std.csv'))
+        allmodel_bayesian_opt_df.to_csv(os.path.join(parent_path, 'results', theme_name, 'bayesian_op.csv'))
         #######################################################
 
 
@@ -1214,9 +1181,6 @@ def learning():
         plt.show()
         #######################################################
         '''
-
-
-
 
         '''
         ##################### LIME Explainer #####################
@@ -1243,9 +1207,6 @@ def learning():
         ##########################################################
         '''
 
-
-
-
         '''
         # import pickle
         # pickle.dump(reg, open("model.pkl", "wb"))
@@ -1264,8 +1225,6 @@ def learning():
         plt.title("imporance in the xgboost Model")
         plt.show()
         '''
-
-
 
     ##################### Deep Learning #####################
     if is_dl == False:
@@ -1410,9 +1369,6 @@ def learning():
 
                                     fit_model_std_raw(model, model_name)
 
-
-
-
                                     model.fit(train_input, train_output,
                                             batch_size=batch_size,
                                             epochs=epochs,
@@ -1542,9 +1498,6 @@ def learning():
                                         total_time = end_time - start_time
                                         #print('loop time is ', total_time)
 
-
-
-
                 else:
                     units_size=62
                     bn_where=1
@@ -1604,9 +1557,6 @@ def learning():
         '''
 
 
-
-
-
 # settting
 # fix the np.random.seed, it can get the same results every time to run this program
 np.random.seed(1)
@@ -1614,26 +1564,27 @@ random.seed(1)
 
 
 #########   regression by the scikitlearn model ###############
-columns_results = ['model_name', 'train_model_mse', 'train_model_rmse', 'test_model_mse', 'test_model_rmse', 'train_model_score', 'test_model_score']
+columns_results = ['model_name',
+                   'train_model_mse',
+                   'train_model_rmse',
+                   'test_model_mse',
+                   'test_model_rmse',
+                   'train_model_score',
+                   'test_model_score']
 allmodel_results_df = pd.DataFrame(columns = columns_results)
 allmodel_bayesian_opt_df = pd.DataFrame()
-
-#print(allmodel_results_df)
 
 # tkinter
 root = tkinter.Tk()
 
 font1 = font.Font(family='游ゴシック', size=10, weight='bold')
 root.option_add("*Font", font1)
-
 style1  = ttk.Style()
 style1.configure('my.TButton', font = ('游ゴシック',10)  )
-
 root.title('table-data machine learning')
 
 frame1  = tkinter.ttk.Frame(root, height = 500, width = 500)
 frame1.grid(row=0,column=0,sticky=(N,E,S,W))
-
 
 label_csv  = tkinter.ttk.Label(frame1, text = 'CSVパス:', anchor="w")
 t_csv = tkinter.StringVar()
@@ -1641,9 +1592,6 @@ entry_csv  = ttk.Entry(frame1, textvariable = t_csv, width = 40)
 
 button_choose_csv    = ttk.Button(frame1, text='CSV選択',
                                  command = choose_csv, style = 'my.TButton')
-
-
-
 
 label_theme_name  = tkinter.ttk.Label(frame1, text = 'テーマ名を入力:')
 t_theme_name = tkinter.StringVar()
@@ -1663,10 +1611,6 @@ entry_output_clm_num  = ttk.Entry(frame1, textvariable = t_output_clm_num, width
 
 save_folder_name = os.path.dirname(t_csv.get()) + 'result'
 
-
-
-
-
 Booleanvar_sklearn = tkinter.BooleanVar()
 Booleanvar_deeplearning = tkinter.BooleanVar()
 Booleanvar_gridsearch = tkinter.BooleanVar()
@@ -1675,36 +1619,23 @@ Booleanvar_bayesian_opt = tkinter.BooleanVar()
 var_bayesian = tkinter.IntVar()
 var_bayesian.set(0)
 
-
 Booleanvar_sklearn.set(True)
 Booleanvar_deeplearning.set(False)
 
 Checkbutton_sklearn = tkinter.Checkbutton(frame1, text = '機械学習', variable = Booleanvar_sklearn)
-#Checkbutton_sklearn.pack()
 Checkbutton_deeplearning = tkinter.Checkbutton(frame1, text = 'ディープラーニング', variable = Booleanvar_deeplearning)
-#Checkbutton_deeplearning.pack()
-
 Checkbutton_gridsearch = tkinter.Checkbutton(frame1, text = '全探索', variable = Booleanvar_gridsearch)
-#Checkbutton_gridsearch.pack()
-
 Checkbutton_bayesian_opt = tkinter.Checkbutton(frame1, text = 'ベイズ最適化', variable = Booleanvar_bayesian_opt)
-#Checkbutton_gridsearch.pack()
 
 Radiobutton_bayesian_max = tkinter.Radiobutton(frame1, value = 0, text = '最大化', variable = var_bayesian)
-#Checkbutton_gridsearch.pack()
 Radiobutton_bayesian_min = tkinter.Radiobutton(frame1, value = 1, text = '最小化', variable = var_bayesian)
-#Checkbutton_gridsearch.pack()
 Radiobutton_bayesian_val = tkinter.Radiobutton(frame1, value = 2, text = '目的値', variable = var_bayesian)
-#Checkbutton_gridsearch.pack()
 
 t_bayesian_val = tkinter.StringVar()
 entry_bayesian_val = ttk.Entry(frame1, textvariable = t_bayesian_val, width = 5)
 
-
 button_learning     = ttk.Button(frame1, text='訓練開始',
                                  command = learning, style = 'my.TButton')
-
-
 # set canvas information
 
 frame2 = tkinter.Toplevel()
@@ -1724,7 +1655,6 @@ else:
     #values is center position
     canvas_predicted_values.create_image(int(photo_size/2), int(photo_size/2), image=image_predicted_values)
     canvas_predicted_values.grid(row=1, column = 1, sticky= W)
-
 
 canvas_important_variable = tkinter.Canvas(frame2, width = photo_size, height = photo_size)
 try:
@@ -1751,12 +1681,9 @@ else:
     canvas_correlation_coefficient.create_image(int(photo_size/2),int(photo_size/2), image=image_correlation_coefficient)
     canvas_correlation_coefficient.grid(row=2, column = 1, sticky= W)
 
-# design
-
 label_csv.grid(row=2,column=1,sticky=E)
 entry_csv.grid(row=2,column=2,sticky=W)
 button_choose_csv.grid(row=1,column=2,sticky=W)
-
 
 label_theme_name.grid(row=4,column=1,sticky=E)
 entry_theme_name.grid(row=4,column=2,sticky=W)
@@ -1766,10 +1693,8 @@ label_input_clm_num.grid(row=7,column=1,sticky=E)
 label_output_clm_num.grid(row=8,column=1,sticky=E)
 
 entry_id_clm_num.grid(row=6,column=2,sticky=W)
-
 entry_input_clm_num.grid(row=7,column=2,sticky=W)
 entry_output_clm_num.grid(row=8,column=2,sticky=W)
-
 
 Checkbutton_sklearn.grid(row = 9, column =2, sticky = W)
 Checkbutton_deeplearning.grid(row = 10, column = 2, stick = W)
