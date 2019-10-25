@@ -83,7 +83,7 @@ echo S | 7za\7za.exe x %~dp0\master.zip
 echo Copyright (C) 2019 Igor Pavlov. OSDN Project translated.
 
 cd %~dp0
-copy CAB-Analyze-Bigdata-master\CAB.py CAB_new.py
+copy CAB-Analyze-Bigdata-master\src\CAB.py CAB_new.py
 
 echo ˆêƒtƒ@ƒCƒ‹‚ğíœ‚µ‚Ü‚·
 rd /s /q CAB-Analyze-Bigdata-master
