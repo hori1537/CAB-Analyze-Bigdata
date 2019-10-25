@@ -81,31 +81,18 @@ def get_variablename(*args):
 np.random.seed(1)
 random.seed(1)
 
-
 # Graphviz path
 #http://spacegomi.hatenablog.com/entry/2018/01/26/170721
-
-#current_path = os.getcwd()
-#desktop_path = os.getenv('HOMEDRIVE') + os.getenv('HOMEPATH') + '\\Desktop'
 current_path = Path.cwd()
-program_path = Path(__file__).parent.parent
+program_path = Path(__file__).parent.resolve()
+
 graphviz_path = program_path / 'release' / 'bin' / 'dot.exe'
 graphviz_path =graphviz_path.resolve()
-print(program_path)
-
+chkprint(program_path)
 parent_path = program_path.parent.resolve()
-print('parent_path', parent_path)
-print('parent_path.resolve()',parent_path.resolve())
-
-theme_name = 'Test'
-model_name = 'eiorj'
-
-aaa = parent_path / 'results' / theme_name / 'sklearn' / 'tree' / (str(model_name) + '.pdf')
-print('aaa', aaa)
-
+chkprint(parent_path)
 data_path           = parent_path / 'data'
 data_processed_path = data_path / 'processed'
-
 
 columns_results = [ 'model_name',
                     'train_model_mse',
@@ -117,13 +104,6 @@ columns_results = [ 'model_name',
 
 allmodel_results_raw_df = pd.DataFrame(columns = columns_results)
 allmodel_results_std_df = pd.DataFrame(columns = columns_results)
-
-
-# to make the folder of Machine Learning
-#if os.path.exists(address_) == False:
-#    print('no exist ', address_)
-#    pass
-
 
 # make the folder for saving the results
 def chk_mkdir(paths):
