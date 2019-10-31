@@ -6,38 +6,44 @@
 
 from __future__ import print_function
 
-import sklearn
-import sklearn.ensemble
+from pathlib import Path
 
-from sklearn.model_selection import GridSearchCV
-from sklearn.metrics import mean_squared_error, r2_score
-from sklearn.multioutput import MultiOutputRegressor
-from sklearn.tree import _tree
-from sklearn.externals.six import StringIO
-from sklearn import linear_model
-from sklearn import svm
-from sklearn.kernel_ridge import KernelRidge
-#ver0.20
-from sklearn.model_selection import train_test_split
-#from sklearn.cross_validation import train_test_split
+import os
+import sys
+import random
+import math
+import time
+import copy
 
+import itertools
 
 import numpy as np
 import numpy
-
-from pathlib import Path
-
 import pandas as pd
-import math
-import time
-import random
-import os
-import sys
-import itertools
-import copy
 
 import matplotlib.pyplot as plt
 import seaborn as sns
+import pydotplus
+
+from PIL import ImageTk, Image
+
+import tkinter
+import tkinter.filedialog
+from tkinter import ttk,N,E,S,W,font
+
+import sklearn
+import sklearn.ensemble
+
+from sklearn import linear_model
+from sklearn import svm
+from sklearn.externals.six import StringIO
+from sklearn.kernel_ridge import KernelRidge
+from sklearn.model_selection import GridSearchCV
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import mean_squared_error, r2_score
+from sklearn.multioutput import MultiOutputRegressor
+from sklearn.preprocessing import StandardScaler
+from sklearn.tree import _tree
 
 import GPy
 import GPyOpt
@@ -50,20 +56,10 @@ except:
     print('dtreeviz was not found')
     pass
 
-
-import pydotplus
-
 import xgboost as xgb
 #from xgboost import plot_tree # sklearn has also plot_tree, so do not import plot_Tree
 
-import tkinter
-import tkinter.filedialog
-from tkinter import ttk
-from tkinter import N,E,S,W
-from tkinter import font
-
-from PIL import ImageTk, Image
-
+import optuna
 
 # #chkprint
 # refer from https://qiita.com/AnchorBlues/items/f7725ba87ce349cb0382
@@ -112,14 +108,7 @@ def chk_mkdir(paths):
             os.mkdir(path_name)
     return
 
-def choose_csv():
-    #tk_c = tkinter.Tk()
 
-    csv_file_path = tkinter.filedialog.askopenfilename(initialdir = data_processed_path,
-    title = 'choose the csv', filetypes = [('csv file', '*.csv')])
-
-    t_csv.set(csv_file_path)
-    t_theme_name.set(Path(csv_file_path).parent.name)
 
 
 def learning():
@@ -128,7 +117,7 @@ def learning():
     theme_name = t_theme_name.get()
 
     # cav & theme
-    csv_path = t_csv.get()
+    csv_path = t_csv_filepath.get()
 
     # evaluate of all candidate or not
     is_gridsearch = Booleanvar_gridsearch.get()
@@ -151,24 +140,20 @@ def learning():
                 os.mkdir(path_name)
         return
 
-    paths = [ parent_path/ 'results' ,
-              parent_path/ 'results' / theme_name,
-              parent_path/ 'results' / theme_name / 'sklearn',
-              parent_path/ 'results' / theme_name / 'sklearn' / 'tree',
-              parent_path/ 'results' / theme_name / 'sklearn' / 'importance',
-              parent_path/ 'results' / theme_name / 'sklearn' / 'parameter_raw',
-              parent_path/ 'results' / theme_name / 'sklearn' / 'parameter_std',
-              parent_path/ 'results' / theme_name / 'sklearn' / 'predict_raw',
-              parent_path/ 'results' / theme_name / 'sklearn' / 'predict_stdtoraw',
-              parent_path/ 'results' / theme_name / 'sklearn' / 'traintest_raw',
-              parent_path/ 'results' / theme_name / 'sklearn' / 'traintest_std',
-              parent_path/ 'results' / theme_name / 'sklearn' / 'traintest_stdtoraw',
-              parent_path/ 'results' / theme_name / 'sklearn' / 'scatter_diagram',
-              parent_path/ 'results' / theme_name / 'sklearn' / 'bayesian_opt',
-              parent_path/ 'results' / theme_name / 'deeplearning',
-              parent_path/ 'results' / theme_name / 'deeplearning' / 'h5',
-              parent_path/ 'results' / theme_name / 'deeplearning' / 'traintest',
-              parent_path/ 'results' / theme_name / 'deeplearning' / 'predict']
+    paths = [ parent_path / 'results' ,
+              parent_path / 'results' / theme_name,
+              parent_path / 'results' / theme_name / 'tree',
+              parent_path / 'results' / theme_name / 'importance',
+              parent_path / 'results' / theme_name / 'parameter_raw',
+              parent_path / 'results' / theme_name / 'parameter_std',
+              parent_path / 'results' / theme_name / 'predict_raw',
+              parent_path / 'results' / theme_name / 'predict_stdtoraw',
+              parent_path / 'results' / theme_name / 'traintest_raw',
+              parent_path / 'results' / theme_name / 'traintest_std',
+              parent_path / 'results' / theme_name / 'traintest_stdtoraw',
+              parent_path / 'results' / theme_name / 'scatter_diagram',
+              parent_path / 'results' / theme_name / 'bayesian_opt',
+              parent_path / 'results' / theme_name / 'DL-models']
 
     chk_mkdir(paths)
 
@@ -220,7 +205,7 @@ def learning():
         #print(get_ordinal_mapping(ce_onehot))
 
     except:
-        print('Error - no import category_encoders')
+        print('Error - category_encoders')
         pass
 
     #raw_data_df = pd.read_csv(open(str(address_) + str(CSV_NAME) ,encoding="utf-8_sig"))
@@ -230,12 +215,14 @@ def learning():
     except:
         raw_data_df = pd.read_csv(open(csv_path ,encoding="shift-jis"))
         print('shift-jisで読み込みました')
+    else:
+        pass
+
 
     # csv information data columns
     info_col    = info_num
     input_col   = info_num + input_num
     output_col  = info_num + input_num + output_num
-
 
     info_raw_df         = raw_data_df.iloc[:, 0         : info_col]
     input_raw_df        = raw_data_df.iloc[:, info_col  : input_col]
@@ -252,7 +239,6 @@ def learning():
     predict_output_feature_names    = list(map(lambda x:x + '-predict' , output_feature_names))
     list_predict_feature_names      = [predict_input_feature_names, predict_output_feature_names]
 
-    from sklearn.preprocessing import StandardScaler
     in_output_sc_model  = StandardScaler()
     input_sc_model      = StandardScaler()
     output_sc_model     = StandardScaler()
@@ -287,50 +273,69 @@ def learning():
     # split train data and test data from the in_output_std_df
     np.random.seed(10)
     random.seed(10)
-    train_std_df, test_std_df   = train_test_split(in_output_std_df, test_size=0.2)
+    train_std_df, test_std_df  = train_test_split(in_output_std_df, test_size=0.2)
+    train_std_df, val_std_df   = train_test_split(train_std_df, test_size=0.1)
+
     np.random.seed(10)
     random.seed(10)
-    train_raw_df, test_raw_df   = train_test_split(in_output_raw_df, test_size=0.2)
+    train_raw_df, test_raw_df  = train_test_split(in_output_raw_df, test_size=0.2)
+    train_raw_df, val_raw_df   = train_test_split(train_raw_df, test_size=0.1)
 
     # transform from pandas dataframe to numpy array
     train_raw_np = np.array(train_raw_df)
     test_raw_np  = np.array(test_raw_df)
+    val_raw_np   = np.array(val_raw_df)
+
     train_std_np = np.array(train_std_df)
     test_std_np  = np.array(test_std_df)
+    val_std_np   = np.array(val_std_df)
+
+    print(len(train_raw_np))
+    print(len(test_raw_np))
+    print(len(val_raw_np))
 
     # split columns to info, input, output
     [train_input_raw, train_output_raw] = np.hsplit(train_raw_np, [input_num])
     list_train_raw                      = [train_input_raw, train_output_raw]
     [test_input_raw,  test_output_raw]  = np.hsplit(test_raw_np,  [input_num])
     list_test_raw                       = [test_input_raw, test_output_raw]
+    [val_input_raw,  val_output_raw]    = np.hsplit(val_raw_np,  [input_num])
+    list_val_raw                        = [val_input_raw, val_output_raw]
 
     [train_input_std, train_output_std] = np.hsplit(train_std_np, [input_num])
     list_train_std                      = [train_input_std  , train_output_std]
-
     [test_input_std,  test_output_std]  = np.hsplit(test_std_np , [input_num])
     list_test_std                       = [test_input_std   , test_output_std]
+    [val_input_std,  val_output_std]    = np.hsplit(val_std_np,  [input_num])
+    val_test_std                        = [val_input_std, val_output_std]
 
     train_input_raw_df                  = pd.DataFrame(train_input_raw  , columns = input_feature_names)
     test_input_raw_df                   = pd.DataFrame(test_input_raw   , columns = input_feature_names)
+    val_input_raw_df                    = pd.DataFrame(val_input_raw   , columns = input_feature_names)
     train_output_raw_df                 = pd.DataFrame(train_output_raw , columns = output_feature_names)
     test_output_raw_df                  = pd.DataFrame(test_output_raw  , columns = output_feature_names)
+    val_output_raw_df                   = pd.DataFrame(val_output_raw  , columns = output_feature_names)
 
     list_train_raw_df                   = [train_input_raw_df, train_output_raw_df]
     list_test_raw_df                    = [test_input_raw_df, test_output_raw_df]
+    list_val_raw_df                     = [val_input_raw_df, val_output_raw_df]
 
     train_input_std_df                  = pd.DataFrame(train_input_std  , columns = input_feature_names)
     test_input_std_df                   = pd.DataFrame(test_input_std   , columns = input_feature_names)
+    val_input_std_df                    = pd.DataFrame(val_input_std   , columns = input_feature_names)
     train_output_std_df                 = pd.DataFrame(train_output_std , columns = output_feature_names)
     test_output_std_df                  = pd.DataFrame(test_output_std  , columns = output_feature_names)
+    val_output_std_df                   = pd.DataFrame(val_output_std  , columns = output_feature_names)
 
     list_train_std_df                   = [train_input_std_df , train_output_std_df ]
     list_test_std_df                    = [test_input_std_df  , test_output_std_df ]
+    list_val_std_df                     = [val_input_std_df  , val_output_std_df ]
 
     plt.figure(figsize=(5,5))
     sns.heatmap(in_output_raw_df.corr(), cmap = 'Oranges',annot=False, linewidths = .5)
-    plt.savefig(parent_path / 'results' /  theme_name / 'sklearn' / 'correlation_coefficient.png', dpi = 240)
-    #######  extract descision tree   ################################################
+    plt.savefig(parent_path / 'results' /  theme_name / 'correlation_coefficient.png', dpi = 240)
 
+    #######  extract descision tree   ################################################
     def tree_to_code(tree, feature_names):
         tree_ = tree.tree_
         feature_name = [
@@ -366,8 +371,8 @@ def learning():
         gridsearch_predict_raw_df       = pd.concat([gridsearch_input_raw_df, gridsearch_predict_raw_df], axis = 1)
         gridsearch_predict_stdtoraw_df  = pd.concat([gridsearch_input_std_df, gridsearch_predict_stdtoraw_df], axis = 1)
 
-        gridsearch_predict_raw_df.to_csv(     parent_path / 'results' / theme_name / 'sklearn' / 'predict_raw' / (str(model_name) + '_predict.csv'))
-        gridsearch_predict_stdtoraw_df.to_csv(parent_path / 'results' / theme_name / 'sklearn' / 'predict_stdtoraw' / (str(model_name)+ '_predict.csv'))
+        gridsearch_predict_raw_df.to_csv(     parent_path / 'results' / theme_name / 'predict_raw' / (str(model_name) + '_predict.csv'))
+        gridsearch_predict_stdtoraw_df.to_csv(parent_path / 'results' / theme_name / 'predict_stdtoraw' / (str(model_name)+ '_predict.csv'))
 
         return
 
@@ -431,7 +436,7 @@ def learning():
             #graph.write_pdf(model_name + '.pdf')
 
             #graph.write_pdf(os.path.join(str(parent_path.resolve()), 'results', theme_name, 'sklearn', 'tree', str(model_name) + '.pdf'))
-            #tmp_path = (parent_path / 'results' / theme_name / 'sklearn' / 'tree' / (str(model_name) + '.pdf')).name
+            #tmp_path = (parent_path / 'results' / theme_name / 'tree' / (str(model_name) + '.pdf')).name
             #graph.write_pdf(tmp_path)
             #graph.write_pdf(r'C:\Users\1310202\Desktop\20180921\horie\data_science\データ解析\CAB-Analyze-Bigdata-master\new\src\results\Bushing\sklearn\tree\DecisionTreeRegressor_max_depth_7.pdf')
 
@@ -459,7 +464,7 @@ def learning():
             plt.rcParams["font.size"] = 12
 
             plt.title("importances-" + model_name)
-            plt.savefig(parent_path / 'results' / theme_name / 'sklearn' / 'importance' / (str(model_name)+ '.png'), dpi = 240)
+            plt.savefig(parent_path / 'results' / theme_name / 'importance' / (str(model_name)+ '.png'), dpi = 240)
             return
 
 
@@ -467,6 +472,8 @@ def learning():
 
             pred_train = model.predict(list_train_raw[in_n])
             pred_test = model.predict(list_test_raw[in_n])
+
+            #print('size', len((pred_train)), len(list_train_raw[out_n]))
 
             from PIL import Image
 
@@ -477,7 +484,7 @@ def learning():
             plt.ylabel('Predicted value')
             plt.scatter(list_test_raw[out_n], pred_test, c = 'lightgreen', label = 'Test', alpha = 0.8)
             plt.legend(loc = 4)
-            plt.savefig(parent_path / 'results' / theme_name / 'sklearn' / 'scatter_diagram' /  (str(model_name) + '_scatter.png'))
+            plt.savefig(parent_path / 'results' / theme_name / 'scatter_diagram' /  (str(model_name) + '_scatter.png'))
 
         global allmodel_results_raw_df
         global allmodel_results_std_df
@@ -555,12 +562,12 @@ def learning():
         allmodel_results_raw_df = pd.concat([allmodel_results_raw_df, results_raw_df])
         allmodel_results_std_df = pd.concat([allmodel_results_std_df, results_std_df])
 
-        train_result_raw_df.to_csv(parent_path / 'results' / theme_name / 'sklearn' / 'traintest_raw'/ (str(model_name) + '_train_raw.csv'))
-        test_result_raw_df.to_csv(parent_path / 'results' / theme_name / 'sklearn' / 'traintest_raw'/ (str(model_name) + '_test_raw.csv'))
-        train_result_std_df.to_csv(parent_path / 'results' / theme_name / 'sklearn' / 'traintest_std'/ (str(model_name) + '_train_std.csv'))
-        test_result_std_df.to_csv(parent_path / 'results' / theme_name / 'sklearn' / 'traintest_std'/ (str(model_name) + '_test_std.csv'))
-        train_result_stdtoraw_df.to_csv(parent_path / 'results' / theme_name / 'sklearn' / 'traintest_stdtoraw'/ (str(model_name) +  '_train_stdtoraw.csv'))
-        test_result_stdtoraw_df.to_csv(parent_path / 'results' / theme_name / 'sklearn' / 'traintest_stdtoraw'/ (str(model_name) +  '_test_stdtoraw.csv'))
+        train_result_raw_df.to_csv(parent_path / 'results' / theme_name / 'traintest_raw'/ (str(model_name) + '_train_raw.csv'))
+        test_result_raw_df.to_csv(parent_path / 'results' / theme_name / 'traintest_raw'/ (str(model_name) + '_test_raw.csv'))
+        train_result_std_df.to_csv(parent_path / 'results' / theme_name / 'traintest_std'/ (str(model_name) + '_train_std.csv'))
+        test_result_std_df.to_csv(parent_path / 'results' / theme_name / 'traintest_std'/ (str(model_name) + '_test_std.csv'))
+        train_result_stdtoraw_df.to_csv(parent_path / 'results' / theme_name / 'traintest_stdtoraw'/ (str(model_name) +  '_train_stdtoraw.csv'))
+        test_result_stdtoraw_df.to_csv(parent_path / 'results' / theme_name / 'traintest_stdtoraw'/ (str(model_name) +  '_test_stdtoraw.csv'))
 
 
         save_scatter_diagram(model_raw, model_name + '_raw')
@@ -574,13 +581,13 @@ def learning():
             model_intercept_raw_df  = pd.DataFrame(model_raw.intercept_)
             model_coef_raw_df       = pd.DataFrame(model_raw.coef_)
             model_parameter_raw_df  = pd.concat([model_intercept_raw_df, model_coef_raw_df])
-            model_parameter_raw_df.to_csv(parent_path / 'results' / theme_name / 'sklearn' / 'parameter_raw' / (str(model_name) + '_parameter.csv'))
+            model_parameter_raw_df.to_csv(parent_path / 'results' / theme_name / 'parameter_raw' / (str(model_name) + '_parameter.csv'))
 
         if hasattr(model_std, 'intercept_') == True &  hasattr(model_std, 'coef_') == True:
             model_intercept_std_df  = pd.DataFrame(model_std.intercept_)
             model_coef_std_df       = pd.DataFrame(model_std.coef_)
             model_parameter_std_df  = pd.concat([model_intercept_std_df, model_coef_std_df])
-            model_parameter_std_df.to_csv(parent_path / 'results' / theme_name / 'sklearn' / 'parameter_std' / (str(model_name) + '_parameter.csv'))
+            model_parameter_std_df.to_csv(parent_path / 'results' / theme_name / 'parameter_std' / (str(model_name) + '_parameter.csv'))
 
         if hasattr(model_raw, 'tree_') == True:
             save_tree_topdf(model_raw, model_name)
@@ -604,7 +611,7 @@ def learning():
             plt.rcParams["font.size"] = 12
 
             plt.title("importance in the tree " + str(theme_name))
-            plt.savefig(parent_path / 'results' / theme_name / 'sklearn' / 'importance' / (str(model_name) + '.png'), dpi = 240)
+            plt.savefig(parent_path / 'results' / theme_name / 'importance' / (str(model_name) + '.png'), dpi = 240)
 
 
         if hasattr(model_raw, 'estimators_') == True:
@@ -714,12 +721,9 @@ def learning():
                 optimized_result_df = pd.concat([model_name_df, optimized_input_df, optimized_output_df], axis =1)
                 #optimized_result_df.to_csv('results' + os.sep + theme_name +  os.sep + 'sklearn'+ os.sep + 'bayesian_opt' + os.sep
                 #                     + str(model_name) + '_bayesian_result.csv')
-                optimized_result_df.to_csv(parent_path / 'results' / theme_name / 'sklearn' / 'bayesian_opt' / (str(model_name)+ '_bayesian_result.csv'))
+                optimized_result_df.to_csv(parent_path / 'results' / theme_name / 'bayesian_opt' / (str(model_name)+ '_bayesian_result.csv'))
 
                 allmodel_bayesian_opt_df = pd.concat([allmodel_bayesian_opt_df, optimized_result_df])
-
-                #sys.exit()
-
             return
 
 
@@ -779,21 +783,20 @@ def learning():
 
         plt.figure(figsize=(5,5))
         plt.scatter(list_train_raw[out_n], pred_train, label = 'Train', c = 'blue')
-        plt.title("-" + model_name)
-        plt.title('Mordred predict')
+        plt.title(model_name)
         plt.xlabel('Measured value')
         plt.ylabel('Predicted value')
         plt.scatter(list_test_raw[out_n], pred_test, c = 'lightgreen', label = 'Test', alpha = 0.8)
         plt.legend(loc = 4)
-        plt.savefig(parent_path / 'results' / theme_name / 'sklearn' / 'meas_pred.png')
+        plt.savefig(parent_path / 'results' / theme_name / 'meas_pred.png')
 
-        img1 = Image.open(parent_path / 'results' / theme_name / 'sklearn' / 'meas_pred.png')
+        img1 = Image.open(parent_path / 'results' / theme_name / 'meas_pred.png')
 
         img1_resize = img1.resize((photo_size, photo_size), Image.LANCZOS)
-        img1_resize.save(parent_path / 'results' / theme_name / 'sklearn' / 'meas_pred.png')
+        img1_resize.save(parent_path / 'results' / theme_name / 'meas_pred.png')
 
         global image_predicted_values
-        image_open = Image.open(parent_path / 'results' / theme_name / 'sklearn' / 'meas_pred.png')
+        image_open = Image.open(parent_path / 'results' / theme_name / 'meas_pred.png')
         image_predicted_values = ImageTk.PhotoImage(image_open, master=frame2)
 
         canvas_predicted_values.create_image(int(photo_size/2),int(photo_size/2), image=image_predicted_values)
@@ -808,15 +811,15 @@ def learning():
         plt.rcParams["font.size"] = 12
 
         plt.title("-" + model_name)
-        plt.savefig(parent_path / 'results' / theme_name / 'sklearn' / 'tmp_importances.png', dpi = 240)
+        plt.savefig(parent_path / 'results' / theme_name / 'tmp_importances.png', dpi = 240)
 
-        img2 = Image.open(parent_path / 'results' / theme_name / 'sklearn' / 'tmp_importances.png')
+        img2 = Image.open(parent_path / 'results' / theme_name / 'tmp_importances.png')
 
         img2_resize = img2.resize((photo_size, photo_size), Image.LANCZOS)
-        img2_resize.save(parent_path / 'results' / theme_name / 'sklearn' / 'tmp_importances.png')
+        img2_resize.save(parent_path / 'results' / theme_name / 'tmp_importances.png')
 
         global image_important_variable
-        image_open = Image.open(parent_path / 'results' / theme_name / 'sklearn' / 'tmp_importances.png')
+        image_open = Image.open(parent_path / 'results' / theme_name / 'tmp_importances.png')
         image_important_variable = ImageTk.PhotoImage(image_open, master=frame2)
 
         canvas_important_variable.create_image(int(photo_size/2),int(photo_size/2), image=image_important_variable)
@@ -825,10 +828,10 @@ def learning():
 
         global image_correlation_coefficient
 
-        img3 = Image.open(parent_path / 'results' / theme_name / 'sklearn' / 'correlation_coefficient.png')
+        img3 = Image.open(parent_path / 'results' / theme_name / 'correlation_coefficient.png')
         img3_resize = img3.resize((photo_size, photo_size), Image.LANCZOS)
-        img3_resize.save(parent_path / 'results' / theme_name / 'sklearn' / 'correlation_coefficient.png')
-        image_open = Image.open(parent_path / 'results' / theme_name / 'sklearn' / 'correlation_coefficient.png')
+        img3_resize.save(parent_path / 'results' / theme_name / 'correlation_coefficient.png')
+        image_open = Image.open(parent_path / 'results' / theme_name / 'correlation_coefficient.png')
 
         image_correlation_coefficient = ImageTk.PhotoImage(image_open, master=frame2)
 
@@ -868,6 +871,7 @@ def learning():
             gridsearch_input_std_df = pd.DataFrame(gridsearch_input_std, columns = list_feature_names[in_n])
 
 
+        n_trials= 1 + Booleanvar_optuna_sklearn.get()*1000
 
         ##################### Linear Regression #####################
 
@@ -877,7 +881,6 @@ def learning():
         fit_model_std_raw(model, model_name)
         LinearRegression_model = model
         LinearRegression_model_name = model_name
-        #LinearRegression_test_r2_score = r2_score(model_std.predict(test_input_std), test_output_std)
 
         ##################### Regression of Stochastic Gradient Descent #####################
         max_iter = 1000
@@ -892,75 +895,169 @@ def learning():
 
 
         ##################### Regression of SVR #####################
-        kernel_ = 'rbf'
-        C_= 1
 
-        model = MultiOutputRegressor(svm.SVR(kernel = kernel_, C = C_))
-        model_name = 'MO_SVR_'
-        model_name += 'k_'+str(kernel_)
-        model_name += 'C_'+str(C_)
+        kernel_ = ['rbf']
+        C_= [0.1, 1, 100]
 
-        fit_model_std_raw(model, model_name)
-        Multi_SVR_model = model
-        Multi_SVR_model_name = model_name
-
-        # refer https://www.slideshare.net/ShinyaShimizu/ss-11623505
-
-
-        ##################### Regression of Ridge #####################
-        tmp_r2_score = 0
-        for alpha_ in [0.01, 0.1, 1.0] :
-            model = linear_model.Ridge(alpha = alpha_)
-            model_name = 'Ridge_'
-            model_name += 'a_'+str(alpha_)
+        for kernel_, C_ in itertools.product(kernel_, C_):
+            model = MultiOutputRegressor(svm.SVR(kernel = kernel_, C = C_))
+            model_name = 'MO_SVR_'
+            model_name += '_k_'+str(kernel_)
+            model_name += '_C_'+str(C_)
 
             fit_model_std_raw(model, model_name)
 
 
+        def objective_svr(trial):
+            svr_c = trial.suggest_loguniform('svr_c', 1e-2, 1e6)
+            epsilon = trial.suggest_loguniform('epsilon', 1e-7, 1e7)
+            svr = svm.SVR(C=svr_c, epsilon=epsilon)
+            svr = MultiOutputRegressor(svm.SVR(kernel = 'rbf', C = svr_c, epsilon=epsilon))
+            svr.fit(list_train_raw[in_n], list_train_raw[out_n])
+            y_pred = svr.predict(list_val_raw[in_n])
 
+            return mean_squared_error(list_val_raw[out_n], y_pred)
+
+        study = optuna.create_study()
+        study.optimize(objective_svr, n_trials=n_trials)
+
+        for kernel_, C_, epsilon in [('rbf', study.best_params['svr_c'], study.best_params['epsilon'])]:
+            model = MultiOutputRegressor(svm.SVR(kernel = kernel_, C = C_, epsilon = epsilon))
+            model_name = 'MO_SVR_best_'
+            model_name += '_k_'+str(kernel_)
+            model_name += '_C_'+str(np.round(C_,2))
+            model_name += '_e_'+str(np.round(epsilon,2))
+
+            fit_model_std_raw(model, model_name)
+
+        # refer https://www.slideshare.net/ShinyaShimizu/ss-11623505
+
+        ##################### Regression of Ridge #####################
+
+
+        for alpha in [0.01, 0.1, 1.0] :
+            model = linear_model.Ridge(alpha = alpha)
+            model_name = 'Ridge_'
+            model_name += 'a_'+str(alpha)
+
+            fit_model_std_raw(model, model_name)
+
+        def objective_ridge(trial):
+            alpha = trial.suggest_loguniform('alpha', 1e0, 1e6)
+
+            model = linear_model.Ridge(alpha = alpha)
+            model.fit(list_train_raw[in_n], list_train_raw[out_n])
+            y_pred = model.predict(list_val_raw[in_n])
+
+            return mean_squared_error(list_val_raw[out_n], y_pred)
+
+        study = optuna.create_study()
+        study.optimize(objective_ridge, n_trials=n_trials)
+
+        for alpha in [(study.best_params['alpha'])]:
+            model = linear_model.Ridge(alpha = alpha)
+            model_name = 'Ridge_best_'
+            model_name += 'a_'+str(np.round(alpha,2))
+
+            fit_model_std_raw(model, model_name)
 
         ##################### Regression of KernelRidge #####################
-        alpha_ = 1.0
-        model = KernelRidge(alpha=alpha_, kernel='rbf')
-        model_name = 'KRidge_'
-        model_name += 'a_'+str(alpha_)
+        for alpha in [0.01, 1.0 ,100]:
+            model = KernelRidge(alpha=alpha, kernel='rbf')
+            model_name = 'KRidge_'
+            model_name += 'a_'+str(alpha)
 
-        fit_model_std_raw(model, model_name)
+            fit_model_std_raw(model, model_name)
 
-        KernelRidge_model = model
-        KernelRidge_model_name = model_name
+
+        def objective_kridge(trial):
+            alpha = trial.suggest_loguniform('alpha', 1e0, 1e4)
+
+            model = KernelRidge(alpha=alpha, kernel='rbf')
+            model.fit(list_train_raw[in_n], list_train_raw[out_n])
+            y_pred = model.predict(list_val_raw[in_n])
+
+            return mean_squared_error(list_val_raw[out_n], y_pred)
+
+        study = optuna.create_study()
+        study.optimize(objective_kridge, n_trials=n_trials)
+
+        for alpha in [(study.best_params['alpha'])]:
+            model = linear_model.Ridge(alpha = alpha)
+            model_name = 'KRidge_best_'
+            model_name += 'a_'+str(np.round(alpha,2))
+
+            fit_model_std_raw(model, model_name)
 
         ##################### Regression of Lasso #####################
-        tmp_r2_score = 0
-        for alpha_ in [0.01, 0.1, 1.0] :
-            model = linear_model.Lasso(alpha = alpha_)
+        for alpha in [0.01, 0.1, 1.0]:
+            model = linear_model.Lasso(alpha = alpha)
             model_name = 'Lasso_'
-            model_name += 'a_'+str(alpha_)
+            model_name += 'a_'+str(alpha)
+
+            fit_model_std_raw(model, model_name)
+
+        def objective_lasso(trial):
+            alpha = trial.suggest_loguniform('alpha', 1e0, 1e4)
+
+            model = linear_model.Lasso(alpha = alpha)
+            model.fit(list_train_raw[in_n], list_train_raw[out_n])
+            y_pred = model.predict(list_val_raw[in_n])
+
+            return mean_squared_error(list_val_raw[out_n], y_pred)
+
+        study = optuna.create_study()
+        study.optimize(objective_lasso, n_trials=n_trials)
+
+        for alpha in [(study.best_params['alpha'])]:
+            model = linear_model.Lasso(alpha = alpha)
+            model_name = 'Lasso_best_'
+            model_name += 'a_'+str(np.round(alpha,2))
 
             fit_model_std_raw(model, model_name)
 
         ##################### Regression of Elastic Net #####################
 
-        alpha_      = [0.01, 0.1]
-        l1_ratio_   = [0.25, 0.75]
+        alpha      = [0.01, 0.1]
+        l1_ratio   = [0.25, 0.75]
 
-        tmp_r2_score = 0
-        for alpha_, l1_ratio_ in itertools.product(alpha_, l1_ratio_):
+        for alpha, l1_ratio in itertools.product(alpha, l1_ratio):
 
-            model = linear_model.ElasticNet(alpha=alpha_, l1_ratio = l1_ratio_)
-            model_name = 'EN_'
-            model_name += 'a_'+str(alpha_)
-            model_name += 'l1_r_'+str(l1_ratio_)
+            model = linear_model.ElasticNet(alpha=alpha, l1_ratio=l1_ratio)
+            model_name = 'ENet_'
+            model_name += 'a_'+str(alpha)
+            model_name += 'l1_r_'+str(l1_ratio)
 
             fit_model_std_raw(model, model_name)
 
+        def objective_enet(trial):
+            alpha = trial.suggest_loguniform('alpha', 1e0, 1e4)
+            l1_ratio = trial.suggest_uniform('l1_ratio', 0, 1)
+
+            model = linear_model.ElasticNet(alpha=alpha, l1_ratio = l1_ratio)
+            model.fit(list_train_raw[in_n], list_train_raw[out_n])
+            y_pred = model.predict(list_val_raw[in_n])
+
+            return mean_squared_error(list_val_raw[out_n], y_pred)
+
+        study = optuna.create_study()
+        study.optimize(objective_enet, n_trials=n_trials)
+
+
+        for alpha, l1_ratio in [(study.best_params['alpha'], study.best_params['l1_ratio'])]:
+            model = linear_model.ElasticNet(alpha=alpha, l1_ratio=l1_ratio)
+            model_name = 'ENet_best_'
+            model_name += 'a_'+str(np.round(alpha,2))
+            model_name += 'l1_r_'+str(np.round(l1_ratio,2))
+
+            fit_model_std_raw(model, model_name)
 
 
         ##################### Regression of MultiTaskLassoCV #####################
         max_iter_ = 1000
 
         model = linear_model.MultiTaskLassoCV()
-        model_name = 'MTLasso_'
+        model_name = 'MT-Lasso_'
         model_name += 'max_i_'+str(max_iter)
 
         fit_model_std_raw(model, model_name)
@@ -968,9 +1065,8 @@ def learning():
         ##################### Regression of Multi Task Elastic Net CV #####################
         model = linear_model.MultiTaskElasticNetCV()
 
-        model_name = 'MTElasticNet_'
+        model_name = 'MT-ENet_'
         fit_model_std_raw(model, model_name)
-
 
         ##################### Regression of OrthogonalMatchingPursuit #####################
         #model = linear_model.OrthogonalMatchingPursuit()
@@ -983,6 +1079,51 @@ def learning():
         model_name = 'MO_BRidge_'
 
         fit_model_std_raw(model, model_name)
+
+
+        def objective_bridge(trial):
+            alpha_1 = trial.suggest_loguniform('alpha_1', 1e-8, 1e-4)
+            alpha_2 = trial.suggest_loguniform('alpha_2', 1e-8, 1e-4)
+            lambda_1 = trial.suggest_loguniform('lambda_1', 1e-8, 1e-4)
+            lambda_2 = trial.suggest_loguniform('lambda_2', 1e-8, 1e-4)
+
+            model = MultiOutputRegressor(
+                        linear_model.BayesianRidge(
+                                        alpha_1=alpha_1,
+                                        alpha_2=alpha_2,
+                                        lambda_1=lambda_1,
+                                        lambda_2=lambda_2,
+                                        ))
+            model.fit(list_train_raw[in_n], list_train_raw[out_n])
+            y_pred = model.predict(list_val_raw[in_n])
+
+            return mean_squared_error(list_val_raw[out_n], y_pred)
+
+        study = optuna.create_study()
+        study.optimize(objective_bridge, n_trials=n_trials)
+
+        for alpha_1, alpha_2, lambda_1, lambda_2 in [(
+                                                              study.best_params['alpha_1'],
+                                                              study.best_params['alpha_2'],
+                                                              study.best_params['lambda_1'],
+                                                              study.best_params['lambda_2']
+                                                              )]:
+            model = MultiOutputRegressor(
+                                        linear_model.BayesianRidge(
+                                            n_iter=300,
+                                            tol=0.001,
+                                            alpha_1=alpha_1,
+                                            alpha_2=alpha_2,
+                                            lambda_1=lambda_1,
+                                            lambda_2=lambda_2
+                                            ))
+            model_name = 'MO_BRidge_best'
+            model_name += '_a1_'+str(np.round(np.log(alpha_1),1))
+            model_name += '_a2_'+str(np.round(np.log(alpha_2),1))
+            model_name += '_l1_'+str(np.round(np.log(lambda_1),1))
+            model_name += '_l2_'+str(np.round(np.log(lambda_2),1))
+            fit_model_std_raw(model, model_name)
+
 
         ##################### Regression of PassiveAggressiveRegressor #####################
         #model = MultiOutputRegressor(linear_model.PassiveAggressiveRegressor())
@@ -1010,14 +1151,40 @@ def learning():
         '''
 
         ##################### Regression of GaussianProcessRegressor #####################
-        '''
+
         from sklearn.gaussian_process import GaussianProcessRegressor
 
         model = MultiOutputRegressor(GaussianProcessRegressor())
-        model_name = 'MultiOutput GaussianProcessRegressor_'
+        model_name = 'MO-GPR_'
 
         fit_model_std_raw(model, model_name)
-        '''
+
+        def objective_gpr(trial):
+            alpha = trial.suggest_loguniform('alpha', 1e-14, 1e-6)
+
+            model = MultiOutputRegressor(GaussianProcessRegressor(alpha=alpha))
+            model.fit(list_train_raw[in_n], list_train_raw[out_n])
+            y_pred = model.predict(list_val_raw[in_n])
+
+            return mean_squared_error(list_val_raw[out_n], y_pred)
+
+        study = optuna.create_study()
+        study.optimize(objective_gpr, n_trials=n_trials)
+
+        # 最適解
+        print(study.best_params)
+        print(study.best_value)
+        print(study.best_trial)
+
+        for alpha in           [(
+                                study.best_params['alpha']
+                                )]:
+            model = MultiOutputRegressor(GaussianProcessRegressor(alpha=alpha))
+            model_name = 'MO-GPR_best'
+            model_name += '_a_'+str(np.round(np.log(alpha),2))
+            fit_model_std_raw(model, model_name)
+
+
 
         ##################### Regression of GaussianNB #####################
 
@@ -1052,13 +1219,41 @@ def learning():
         '''
 
         ##################### Regression of DecisionTreeRegressor #####################
-        tmp_r2_score = 0
+
         for max_depth in [7,10]:
             model = sklearn.tree.DecisionTreeRegressor(max_depth = max_depth)
-            model_name = 'DeciTree_'
+            model_name = 'Tree_'
             model_name += 'max_d_'+str(max_depth)
 
             fit_model_std_raw(model, model_name)
+
+
+        def objective_dtr(trial):
+            max_depth = trial.suggest_int('max_depth', 2, 13)
+
+            model = sklearn.tree.DecisionTreeRegressor(max_depth = max_depth)
+            model.fit(list_train_raw[in_n], list_train_raw[out_n])
+            y_pred = model.predict(list_val_raw[in_n])
+
+            return mean_squared_error(list_val_raw[out_n], y_pred)
+
+        study = optuna.create_study()
+        study.optimize(objective_dtr, n_trials=n_trials)
+
+        # 最適解
+        print(study.best_params)
+        print(study.best_value)
+        print(study.best_trial)
+
+        for alpha in           [(
+                                study.best_params['max_depth']
+                                )]:
+            model = sklearn.tree.DecisionTreeRegressor(max_depth = max_depth)
+            model_name = 'Tree_best_'
+            model_name += 'max_d_'+str(max_depth)
+            fit_model_std_raw(model, model_name)
+
+
 
 
         ##################### Regression of Multioutput DecisionTreeRegressor #####################
@@ -1066,17 +1261,37 @@ def learning():
         for max_depth in [3,5,9]:
 
             model = MultiOutputRegressor(sklearn.tree.DecisionTreeRegressor(max_depth = max_depth))
-            model_name = 'MO_DeciTree_'
+            model_name = 'MO_Tree_'
             model_name += 'max_d_' + str(max_depth)
             fit_model_std_raw(model, model_name)
-            '''
-            if r2_score(model_std.predict(test_input_std), test_output_std) > tmp_r2_score:
-                tmp_r2_score =  r2_score(model_std.predict(test_input_std), test_output_std)
-                Multi_DecisionTreeRegressor_model  = model
-                Multi_DecisionTreeRegressor_model_name = model_name
-            '''
+
+        def objective_modtr(trial):
+            max_depth = trial.suggest_int('max_depth', 2, 13)
+
+            model = MultiOutputRegressor(sklearn.tree.DecisionTreeRegressor(max_depth = max_depth))
+            model.fit(list_train_raw[in_n], list_train_raw[out_n])
+            y_pred = model.predict(list_val_raw[in_n])
+
+            return mean_squared_error(list_val_raw[out_n], y_pred)
+
+        study = optuna.create_study()
+        study.optimize(objective_modtr, n_trials=n_trials)
+
+        # 最適解
+        print(study.best_params)
+        print(study.best_value)
+        print(study.best_trial)
+
+
+        for alpha in           [(
+                                study.best_params['max_depth']
+                                )]:
+            model = MultiOutputRegressor(sklearn.tree.DecisionTreeRegressor(max_depth = max_depth))
+            model_name = 'MO_Tree_best_'
+            model_name += 'max_d_'+str(max_depth)
+            fit_model_std_raw(model, model_name)
+
         #################### Regression of RandomForestRegressor #####################
-        tmp_r2_score = 0
         for max_depth in [3,5,7,9,11]:
             model = sklearn.ensemble.RandomForestRegressor(max_depth = max_depth)
             model_name = ''
@@ -1085,30 +1300,52 @@ def learning():
             model_name += 'max_d_'+str(max_depth)
 
             fit_model_std_raw(model, model_name)
-            '''
-            if r2_score(model_std.predict(test_input_std), test_output_std) > tmp_r2_score:
-                tmp_r2_score =  r2_score(model_std.predict(test_input_std), test_output_std)
-                RandomForestRegressor_model  = model
-                RandomForestRegressor_model_name = model_name
-            '''
+
+
+        def objective_rfr(trial):
+            max_depth = trial.suggest_int('max_depth', 2, 13)
+
+            model = sklearn.ensemble.RandomForestRegressor(max_depth = max_depth)
+            model.fit(list_train_raw[in_n], list_train_raw[out_n])
+            y_pred = model.predict(list_val_raw[in_n])
+
+            return mean_squared_error(list_val_raw[out_n], y_pred)
+
+        study = optuna.create_study()
+        study.optimize(objective_rfr, n_trials=n_trials)
+
+        # 最適解
+        print(study.best_params)
+        print(study.best_value)
+        print(study.best_trial)
+
+        for alpha in           [(
+                                study.best_params['max_depth']
+                                )]:
+            model = sklearn.ensemble.RandomForestRegressor(max_depth = max_depth)
+            model_name = 'RandForest_best_'
+            model_name += 'max_d_'+str(max_depth)
+            fit_model_std_raw(model, model_name)
+
+
         ##################### Regression of XGBoost #####################
         # refer from https://github.com/FelixNeutatz/ED2/blob/23170b05c7c800e2d2e2cf80d62703ee540d2bcb/src/model/ml/CellPredict.py
 
-        estimator__min_child_weight_ = [5] #1,3
-        estimator__subsample_        = [0.9] #0.7, 0.8,
-        estimator__learning_rate_    = [0.1,0.01] #0.1
-        estimator__max_depth_        = [7]
-        estimator__n_estimators_      = [100]
+        min_child_weight = [5] #1,3
+        subsample        = [0.9] #0.7, 0.8,
+        learning_rate    = [0.1,0.01] #0.1
+        max_depth        = [7]
+        n_estimators      = [100]
 
         tmp_r2_score = 0
-        for estimator__min_child_weight, estimator__subsample, estimator__learning_rate, estimator__max_depth, estimator__n_estimators \
-            in itertools.product(estimator__min_child_weight_, estimator__subsample_, estimator__learning_rate_, estimator__max_depth_,estimator__n_estimators_ ):
+        for min_child_weight, subsample, learning_rate, max_depth, n_estimators \
+            in itertools.product(min_child_weight, subsample, learning_rate, max_depth, n_estimators):
 
-            xgb_params = {'estimator__min_child_weight': estimator__min_child_weight,
-                        'estimator__subsample': estimator__subsample,
-                        'estimator__learning_rate': estimator__learning_rate,
-                        'estimator__max_depth': estimator__max_depth,
-                        'estimator__n_estimators': estimator__n_estimators,
+            xgb_params = {'estimator__min_child_weight': min_child_weight,
+                        'estimator__subsample': subsample,
+                        'estimator__learning_rate': learning_rate,
+                        'estimator__max_depth': max_depth,
+                        'estimator__n_estimators': n_estimators,
                         'colsample_bytree': 0.8,
                         'silent': 1,
                         'seed': 0,
@@ -1117,25 +1354,82 @@ def learning():
             model = MultiOutputRegressor(xgb.XGBRegressor(**xgb_params))
 
             model_name = 'MO-XGB'
-            model_name += 'm_c_w_'+str(estimator__min_child_weight)
-            model_name += 'ss_'+str(estimator__subsample)
-            model_name += 'l_r_'+str(estimator__learning_rate)
-            model_name += 'm_d_'+str(estimator__max_depth)
-            model_name += 'n_es_'+str(estimator__n_estimators)
+            model_name += 'm_c_w_'+str(min_child_weight)
+            model_name += 'ss_'+str(subsample)
+            model_name += 'l_r_'+str(learning_rate)
+            model_name += 'm_d_'+str(max_depth)
+            model_name += 'n_es_'+str(n_estimators)
 
             fit_model_std_raw(model, model_name)
-            '''
-            if r2_score(model_std.predict(test_input_std), test_output_std) > tmp_r2_score:
-                tmp_r2_score =  r2_score(model_std.predict(test_input_std), test_output_std)
-                Xgboost_model  = model
-                Xgboost_model_name = model_name
-            '''
+
+
+
+
+
+        def objective_xgb(trial):
+
+            min_child_weight = trial.suggest_int('min_child_weight', 1 , 10)
+            subsample        = trial.suggest_uniform('subsample', 0.1, 1.0)
+            learning_rate    = trial.suggest_loguniform('learning_rate', 1e-2, 1e+1)
+            max_depth        = trial.suggest_int('max_depth', 3 , 10)
+            n_estimators     = 100
+
+            xgb_params = {'estimator__min_child_weight': min_child_weight,
+                        'estimator__subsample': subsample,
+                        'estimator__learning_rate': learning_rate,
+                        'estimator__max_depth': max_depth,
+                        'estimator__n_estimators': n_estimators,
+                        'colsample_bytree': 0.8,
+                        'silent': 1,
+                        'seed': 0,
+                        'objective': 'reg:linear'}
+
+
+            model = MultiOutputRegressor(xgb.XGBRegressor(**xgb_params))
+            model.fit(list_train_raw[in_n], list_train_raw[out_n])
+            y_pred = model.predict(list_val_raw[in_n])
+
+            return mean_squared_error(list_val_raw[out_n], y_pred)
+
+        study = optuna.create_study()
+        study.optimize(objective_xgb, n_trials=n_trials)
+
+        for min_child_weight, subsample, learning_rate, max_depth in \
+                                [(
+                                study.best_params['min_child_weight'],
+                                study.best_params['subsample'],
+                                study.best_params['learning_rate'],
+                                study.best_params['max_depth']
+                                )]:
+
+            xgb_params = {'estimator__min_child_weight': min_child_weight,
+                        'estimator__subsample': subsample,
+                        'estimator__learning_rate': learning_rate,
+                        'estimator__max_depth': max_depth,
+                        'estimator__n_estimators': 100,
+                        'colsample_bytree': 0.8,
+                        'silent': 1,
+                        'seed': 0,
+                        'objective': 'reg:linear'}
+
+            model = MultiOutputRegressor(xgb.XGBRegressor(**xgb_params))
+
+            model_name = 'MO-XGB_best'
+            model_name += '_c_wei_'+str(min_child_weight)
+            model_name += '_sam_'+str(np.round(subsample,1))
+            model_name += '_rate_'+str(np.round(np.log(learning_rate),1))
+            model_name += '_dep_'+str(max_depth)
+            model_name += '_n_es_'+str(n_estimators)
+            fit_model_std_raw(model, model_name)
+
+
+
+
 
         allmodel_r2_score_list = [
-            [LinearRegression_model_name, LinearRegression_model_name],
-            [Multi_SGD_model_name, Multi_SGD_model]
-
-        ]
+                                    [LinearRegression_model_name, LinearRegression_model_name],
+                                    [Multi_SGD_model_name, Multi_SGD_model]
+                                    ]
         allmodel_r2_score_df = pd.DataFrame()
 
 
@@ -1207,20 +1501,17 @@ def learning():
     if is_dl == False:
         pass
     elif is_dl == True :
-
+        print('start deeplearning')
 
         import keras
-        from keras.models import Sequential
-        from keras.layers import InputLayer
-        from keras.layers import Dense, Dropout, Flatten
-        from keras.layers import Conv2D, MaxPooling2D
         from keras import backend as K
-        from keras.layers.normalization import BatchNormalization
-        from keras.layers import Activation
         import keras.models
-        from keras.wrappers.scikit_learn import KerasRegressor
 
-        from keras.models import load_model
+        from keras.models import Sequential, load_model
+        from keras.layers import Activation, InputLayer, Dense, Dropout, Flatten, Conv2D, MaxPooling2D
+        from keras.layers.normalization import BatchNormalization
+
+        from keras.wrappers.scikit_learn import KerasRegressor
         from keras.utils import plot_model
 
         import h5py
@@ -1232,6 +1523,7 @@ def learning():
             #model.add(InputLayer(input_shape=(input_num,)))
             # 1Layer
             model.add(Dense(units_size, input_shape=(input_num,)))
+            #model.add(Dense(units_size, input_shape=(3,)))
             model.add(Activation('relu'))
             model.add(BatchNormalization(mode=0))
 
@@ -1239,7 +1531,7 @@ def learning():
                 model.add(Dense(units_size))
                 model.add(Activation('relu'))
                 model.add(BatchNormalization(mode=0))
-
+            #model.add(Dense(1))
             model.add(Dense(output_num))
 
 
@@ -1251,7 +1543,7 @@ def learning():
 
         def get_model2(layers_depth, units_size, keep_prob, patience):
             model = Sequential()
-            model.add(Dense(input_num, input_dim = input_num, activation = 'relu'))
+            model.add(Dense(units_size, input_dim = input_num, activation = 'relu'))
 
             for i in range(layers_depth-2):
                 model.add(Dense(units_size, activation = 'relu'))
@@ -1281,264 +1573,48 @@ def learning():
             cb = keras.callbacks.EarlyStopping(monitor = 'loss'   , min_delta = 0,
                                         patience = patience, mode = 'auto')
 
-            print('input_num', input_num)
-            print('output_num', output_num)
-
-            model = KerasRegressor(build_fn = get_model2(*dp_params), nb_epoch=5000, batch_size=5, verbose=0, callbacks=[cb])
-            #model.summary()
+            model_raw = get_model(*dp_params)
+            model_std = get_model(*dp_params)
 
             model_name =   'deeplearning'
             model_name +=  '_depth-'        + str(layers_depth)
             model_name +=  '_unit-'         + str(units_size)
-            #model_name +=  '_BN- '         + str(bn_where)
-            #model_name +=  '_AC-'          + str(ac_last)
             model_name +=  '_drop-'         + str(keep_prob)
             model_name +=  '_patience-'     + str(patience)
 
-            model.fit(list_train_std[in_n], list_train_std[out_n],
-                        batch_size=batch_size,
-                        epochs=epochs,
-                        verbose=1,
-                        validation_data=(list_test_raw[in_n], list_test_raw[out_n]),
-                        callbacks=[cb])
 
-            save_regression(model, model_name, list_train_std[in_n], test_input_std)
+            model_raw.fit(list_train_raw[in_n], list_train_raw[out_n],
+                      batch_size=batch_size,
+                      epochs=epochs,
+                      verbose=1)
 
+            model_std.fit(list_train_std[in_n], list_train_std[out_n],
+                      batch_size=batch_size,
+                      epochs=epochs,
+                      verbose=1)
 
-            #fit_model_std_raw(model, model_name)
+            save_regression(model_raw, model_std, model_name)
+            #model_raw.save(parent_path / 'results' / theme_name / 'deeplearning' / 'models' / 'std.h5', include_optimizer=False)
+            #model_std.save(parent_path / 'results' / theme_name / 'deeplearning' / 'models' / 'std.h5', include_optimizer=False)
 
         allmodel_results_df.to_csv('comparison of methods.csv')
-
-        ##epochs = 100000
-        #batch_size = 32
-        '''
-        for patience_ in [100,3000]:
-
-            es_cb = keras.callbacks.EarlyStopping(monitor='val_loss', patience=patience_, verbose=0, mode='auto')
-
-            for layers_depth in [4,3,2]:
-                if layers_depth !=1:
-                    for units_size in[1024,512,256,128,64,32,16]:
-                        for bn_where in [3,0,1,2]:
-                            for ac_last in [0,1]:
-                                for keep_prob in [0,0.1,0.2]:
-
-                                    model =get_model(layers_depth,units_size,bn_where,ac_last,keep_prob, patience)
-                                    #model = KerasRegressor(build_fn = model, epochs=5000, batch_size=5, verbose=0, callbacks=[es_cb])
-
-                                    if units_size >= 1024:
-                                        batch_size = 30
-                                    elif layers_depth >= 4:
-                                        batch_size = 30
-                                    elif bn_where ==3:
-                                        batch_size=30
-
-                                    else:
-                                        batch_size = 30
-
-                                    model_name = "deeplearning"
-                                    model_name +=  '_numlayer-'       + str(layers_depth)
-                                    model_name +=  '_layersize-'      + str(units_size)
-                                    model_name +=  '_bn- '            + str(bn_where)
-                                    model_name +=  '_ac-'             + str(ac_last)
-                                    model_name +=  '_k_p-'            + str(keep_prob)
-                                    model_name +=  '_pat-'       + str(patience_)
-
-                                    fit_model_std_raw(model, model_name)
-
-                                    model.fit(train_input, train_output,
-                                            batch_size=batch_size,
-                                            epochs=epochs,
-                                            verbose=1,
-                                            validation_data=(test_input, test_output),
-                                            callbacks=[es_cb])
-
-                                    save_regression(model, model_name, list_train_std[in_n], test_input_std)
-
-
-                                    score_test = model.evaluate(test_input, test_output, verbose=1)
-                                    score_train = model.evaluate(train_input, train_output, verbose=1)
-                                    test_predict = model.predict(test_input, batch_size=32, verbose=1)
-                                    train_predict = model.predict(train_input, batch_size=32, verbose=1)
-
-                                    df_test_pre = pd.DataFrame(test_predict)
-                                    df_train_pre = pd.DataFrame(train_predict)
-
-                                    df_test_param = pd.DataFrame(test_output)
-                                    df_train_param = pd.DataFrame(train_output)
-
-                                    df_dens_test = pd.concat([df_test_param, df_test_pre], axis=1)
-                                    df_dens_train = pd.concat([df_train_param, df_train_pre], axis=1)
-
-                                    savename = ""
-                                    savename +=  '_score_train-'    + str("%.3f" % round(score_train[0],3))
-                                    savename +=  '_score_test-'     + str("%.3f" % round((score_test[0]),3))
-                                    savename +=  '_numlayer-'       + str(layers_depth)
-                                    savename +=  '_layersize-'      + str(units_size)
-                                    savename +=  '_bn- '            + str(bn_where)
-                                    savename +=  '_ac-'             + str(ac_last)
-                                    savename +=  '_k_p-'            + str(keep_prob)
-                                    savename +=  '_patience-'       + str(patience_)
-
-                                    df_dens_test.to_csv('deeplearning/traintest/' + savename + '_test.csv')
-                                    df_dens_train.to_csv('deeplearning/traintest/' + savename + '_train.csv')
-
-
-                                    model.save('deeplearning/h5/' + model_name + '.h5')
-
-
-                                    model.summary()
-
-
-
-                                    ### evaluation of deeplearning ###
-                                    def eval_bydeeplearning(input):
-                                        output_predict = model.predict(input, batch_size = 1, verbose= 1)
-                                        output_predict = np.array(output_predict)
-
-                                        return output_predict
-
-                                    if is_gridsearch == True:
-
-                                        gridsearch_output = eval_bydeeplearning(gridsearch_input)
-
-
-                                        #print('start the evaluation by deeplearning')
-                                        #print('candidate is ', candidate_number)
-
-                                        start_time = time.time()
-
-                                        iter_deeplearning_predict_df = pd.DataFrame(gridsearch_output, columns = predict_output_feature_names)
-                                        iter_deeplearning_predict_df['Tmax'] = iter_deeplearning_predict_df.max(axis=1)
-                                        iter_deeplearning_predict_df['Tmin'] = iter_deeplearning_predict_df.min(axis=1)
-                                        iter_deeplearning_predict_df['Tdelta'] = iter_deeplearning_predict_df['Tmax'] -  iter_deeplearning_predict_df['Tmin']
-
-                                        iter_deeplearning_df = pd.concat([gridsearch_input_std_df, iter_deeplearning_predict_df], axis=1)
-
-                                        end_time = time.time()
-
-                                        total_time = end_time - start_time
-                                        #print('total_time 1', total_time)
-
-                                        predict_df_s = iter_deeplearning_df.sort_values('Tdelta')
-
-                                        predict_df_s.to_csv('deeplearning/predict/'
-                                                            + savename
-                                                            + '_predict.csv')
-
-                                        # evaluate by the for - loop     Not use now
-
-
-                                        i=0
-                                        predict_df = pd.DataFrame()
-                                        output_delta_temp = 100000
-
-                                        start_time = time.time()
-                                        #print('start the for loop')
-                                        for xpot_, ypot_, tend_, tside_, tmesh_, hter_ in itertools.product(xpot_candidate, ypot_candidate, tend_candidate, tside_candidate, tmesh_candidate, hter_candidate):
-
-                                            input_ori = [xpot_, ypot_, tend_, tside_, tmesh_, hter_]
-
-                                            xpot_ = xpot_ / xpot_coef
-                                            ypot_ = ypot_ / ypot_coef
-                                            tend_ = tend_ / tend_coef
-                                            tside_ = tside_ / tside_coef
-                                            tmesh_ = tmesh_ / tmesh_coef
-                                            hter_ = hter_ / hter_coef
-
-                                            input = [xpot_, ypot_, tend_, tside_, tmesh_, hter_]
-
-                                            ##print(input)
-                                            input = np.reshape(input, [1,6])
-
-                                            output = eval_bydeeplearning(input)
-                                            output = output * 1000
-                                            output_max = float(max(output[0]))
-                                            output_min = float(min(output[0]))
-                                            ##print(output_max)
-                                            ##print(output_min)
-                                            output_delta = float(output_max - output_min)
-
-                                            tmp_series = pd.Series([i,input_ori[0],input_ori[1],input_ori[2],input_ori[3],input_ori[4],input_ori[5],output[0][0],output[0][1],output[0][2],output[0][3],output_max,output_min,output_delta])
-
-                                            if output_delta < output_delta_temp * 1.05:
-                                                output_delta_temp = min(output_delta,output_delta_temp)
-
-                                                predict_df = predict_df.append(tmp_series,ignore_index = True)
-
-                                            i +=1
-                                            #if i > 100 :
-                                            #    break
-
-
-                                        end_time = time.time()
-                                        total_time = end_time - start_time
-                                        #print('loop time is ', total_time)
-
-                else:
-                    units_size=62
-                    bn_where=1
-                    keep_prob=0.2
-                    for ac_last in [1]:
-                        model = get_model(layers_depth, units_size, bn_where, ac_last, keep_prob)
-
-                        model.fit(train_input, train_output,
-                                batch_size=batch_size,
-                                epochs=epochs,
-                                verbose=1,
-                                validation_data=(test_input, test_output),
-                                callbacks=[es_cb])
-
-                        score_test = model.evaluate(test_input, test_output, verbose=0)
-                        score_train = model.evaluate(train_input, train_output, verbose=0)
-                        test_predict = model.predict(test_input, batch_size=32, verbose=1)
-                        train_predict = model.predict(train_input, batch_size=32, verbose=1)
-
-                        df_test_pre = pd.DataFrame(test_predict)
-                        df_train_pre = pd.DataFrame(train_predict)
-
-                        df_test_param = pd.DataFrame(test_output)
-                        df_train_param = pd.DataFrame(train_output)
-
-                        df_dens_test = pd.concat([df_test_param, df_test_pre], axis=1)
-                        df_dens_train = pd.concat([df_train_param, df_train_pre], axis=1)
-
-                        savename = ""
-                        savename +=  '_score_train-' + str("%.3f" % round(math.log10(score_train[0]), 3))
-                        savename +=  '_score_test-' + str("%.3f" % round(math.log10(score_test[0]), 3))
-                        savename +=  '_numlayer-' + str(layers_depth)
-                        savename +=  '_layersize-' + str(units_size)
-                        savename +=  '_bn- ' + str(bn_where)
-                        savename +=  '_ac-' + str(ac_last)
-                        savename +=  '_k_p-' + str(keep_prob)
-                        savename +=  '_patience-' + str(patience_)
-
-
-                        df_dens_test.to_csv('deeplearning/traintest/' + savename + '_test.csv')
-
-                        df_dens_train.to_csv('deeplearning/traintest/' + savename + '_train.csv')
-
-
-                        model.save('deeplearning/h5/'
-                                            + savename
-                                            + '.h5')
-                        # plot_model(model, to_file='C:\Deeplearning/model.png')
-                        #plot_model(model, to_file='model.png')
-
-                        #print('Test loss:', score_test[0])
-                        #print('Test accuracy:', score_test[1])
-
-                        ##print('predict', test_predict)
-
-                        model.summary()
-        '''
-
 
 # settting
 # fix the np.random.seed, it can get the same results every time to run this program
 np.random.seed(1)
 random.seed(1)
 
+
+def choose_csv():
+    #tk_c = tkinter.Tk()
+
+    csv_file_path = tkinter.filedialog.askopenfilename(initialdir = data_processed_path,
+    title = 'choose the csv', filetypes = [('csv file', '*.csv')])
+
+    t_csv_filename.set(str(Path(csv_file_path).name))
+    t_csv_filepath.set(csv_file_path)
+
+    t_theme_name.set(Path(csv_file_path).parent.name)
 
 #########   regression by the scikitlearn model ###############
 columns_results = ['model_name',
@@ -1564,15 +1640,17 @@ frame1  = tkinter.ttk.Frame(root, height = 500, width = 500)
 frame1.grid(row=0,column=0,sticky=(N,E,S,W))
 
 label_csv  = tkinter.ttk.Label(frame1, text = 'CSVパス:', anchor="w")
-t_csv = tkinter.StringVar()
-entry_csv  = ttk.Entry(frame1, textvariable = t_csv, width = 40)
+t_csv_filename = tkinter.StringVar()
+t_csv_filepath = tkinter.StringVar()
+
+entry_csv_filename  = ttk.Entry(frame1, textvariable = t_csv_filename, width = 20)
 
 button_choose_csv    = ttk.Button(frame1, text='CSV選択',
                                  command = choose_csv, style = 'my.TButton')
 
 label_theme_name  = tkinter.ttk.Label(frame1, text = 'テーマ名を入力:')
 t_theme_name = tkinter.StringVar()
-entry_theme_name  = ttk.Entry(frame1, textvariable = t_theme_name, width = 10)
+entry_theme_name  = ttk.Entry(frame1, textvariable = t_theme_name, width = 20)
 
 label_id_clm_num   = tkinter.ttk.Label(frame1, text = '非データの列数を入力:')
 label_input_clm_num   = tkinter.ttk.Label(frame1, text = '入力変数の列数を入力:')
@@ -1582,14 +1660,17 @@ t_info_clm_num = tkinter.StringVar()
 t_input_clm_num = tkinter.StringVar()
 t_output_clm_num = tkinter.StringVar()
 
-entry_id_clm_num  = ttk.Entry(frame1, textvariable = t_info_clm_num, width = 10)
-entry_input_clm_num  = ttk.Entry(frame1, textvariable = t_input_clm_num, width = 10)
-entry_output_clm_num  = ttk.Entry(frame1, textvariable = t_output_clm_num, width = 10)
+entry_id_clm_num  = ttk.Entry(frame1, textvariable = t_info_clm_num, width = 20)
+entry_input_clm_num  = ttk.Entry(frame1, textvariable = t_input_clm_num, width = 20)
+entry_output_clm_num  = ttk.Entry(frame1, textvariable = t_output_clm_num, width = 20)
 
-save_folder_name = os.path.dirname(t_csv.get()) + 'result'
+save_folder_name = os.path.dirname(t_csv_filename.get()) + 'result'
 
 Booleanvar_sklearn = tkinter.BooleanVar()
+Booleanvar_optuna_sklearn = tkinter.BooleanVar()
 Booleanvar_deeplearning = tkinter.BooleanVar()
+Booleanvar_optuna_deeplearning = tkinter.BooleanVar()
+
 Booleanvar_gridsearch = tkinter.BooleanVar()
 Booleanvar_bayesian_opt = tkinter.BooleanVar()
 
@@ -1597,10 +1678,15 @@ var_bayesian = tkinter.IntVar()
 var_bayesian.set(0)
 
 Booleanvar_sklearn.set(True)
+Booleanvar_optuna_sklearn.set(True)
 Booleanvar_deeplearning.set(False)
 
 Checkbutton_sklearn = tkinter.Checkbutton(frame1, text = '機械学習', variable = Booleanvar_sklearn)
+Checkbutton_optuna_sklearn = tkinter.Checkbutton(frame1, text = '高精度', variable = Booleanvar_optuna_sklearn)
+
 Checkbutton_deeplearning = tkinter.Checkbutton(frame1, text = 'ディープラーニング', variable = Booleanvar_deeplearning)
+Checkbutton_optuna_deeplearning = tkinter.Checkbutton(frame1, text = '高精度', variable = Booleanvar_optuna_deeplearning)
+
 Checkbutton_gridsearch = tkinter.Checkbutton(frame1, text = '全探索', variable = Booleanvar_gridsearch)
 Checkbutton_bayesian_opt = tkinter.Checkbutton(frame1, text = 'ベイズ最適化', variable = Booleanvar_bayesian_opt)
 
@@ -1659,7 +1745,7 @@ else:
     canvas_correlation_coefficient.grid(row=2, column = 1, sticky= W)
 
 label_csv.grid(row=2,column=1,sticky=E)
-entry_csv.grid(row=2,column=2,sticky=W)
+entry_csv_filename.grid(row=2,column=2,sticky=W)
 button_choose_csv.grid(row=1,column=2,sticky=W)
 
 label_theme_name.grid(row=4,column=1,sticky=E)
@@ -1674,7 +1760,9 @@ entry_input_clm_num.grid(row=7,column=2,sticky=W)
 entry_output_clm_num.grid(row=8,column=2,sticky=W)
 
 Checkbutton_sklearn.grid(row = 9, column =2, sticky = W)
+Checkbutton_optuna_sklearn.grid(row = 9, column =3, sticky = W)
 Checkbutton_deeplearning.grid(row = 10, column = 2, stick = W)
+Checkbutton_optuna_deeplearning.grid(row = 10, column = 3, stick = W)
 Checkbutton_gridsearch.grid(row = 11, column = 2, stick = W)
 Checkbutton_bayesian_opt.grid(row = 12, column = 2, stick = W)
 
