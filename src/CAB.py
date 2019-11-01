@@ -108,12 +108,8 @@ def chk_mkdir(paths):
             os.mkdir(path_name)
     return
 
-
-
-
 def learning():
     # theme_name used as the result folder name
-    theme_name = 'solubility'
     theme_name = t_theme_name.get()
 
     # cav & theme
@@ -124,14 +120,13 @@ def learning():
 
     # perform deeplearning or not
     is_dl = Booleanvar_deeplearning.get()
-
     is_bayesian_opt = Booleanvar_bayesian_opt.get()
-
+    is_optuna_sklearn = Booleanvar_optuna_sklearn.get()
+    is_optuna_deeplearning = Booleanvar_optuna_deeplearning.get()
 
     # make the save folder
     print('chdir', os.path.dirname(csv_path))
     os.chdir(os.path.dirname(csv_path))
-
 
     # make the folder for saving the results
     def chk_mkdir(paths):
@@ -871,7 +866,7 @@ def learning():
             gridsearch_input_std_df = pd.DataFrame(gridsearch_input_std, columns = list_feature_names[in_n])
 
 
-        n_trials= 1 + Booleanvar_optuna_sklearn.get()*1000
+        n_trials= 25 + Booleanvar_optuna_sklearn.get()*100
 
         ##################### Linear Regression #####################
 
@@ -1518,8 +1513,10 @@ def learning():
 
 
         def get_model(layers_depth, units_size, keep_prob, patience):
+            layers_depth = int(layers_depth)
+            units_size = int(units_size)
 
-            model =Sequential()
+            model = Sequential()
             #model.add(InputLayer(input_shape=(input_num,)))
             # 1Layer
             model.add(Dense(units_size, input_shape=(input_num,)))
@@ -1565,18 +1562,84 @@ def learning():
         patience    = [3000]
 
 
-        for dp_params in itertools.product(layers_depth, units_size, keep_prob, patience):
-            layers_depth, units_size, keep_prob, patience = dp_params
+        for dl_params in itertools.product(layers_depth, units_size, keep_prob, patience):
+            layers_depth, units_size, keep_prob, patience = dl_params
 
             batch_size  = 30
-            epochs   = 10
+            epochs   = 5
             cb = keras.callbacks.EarlyStopping(monitor = 'loss'   , min_delta = 0,
                                         patience = patience, mode = 'auto')
 
-            model_raw = get_model(*dp_params)
-            model_std = get_model(*dp_params)
+            model_raw = get_model(*dl_params)
+            model_std = get_model(*dl_params)
 
-            model_name =   'deeplearning'
+            model_name =   'dl'
+            model_name +=  '_depth-'        + str(layers_depth)
+            model_name +=  '_unit-'         + str(units_size)
+            model_name +=  '_drop-'         + str(keep_prob)
+            model_name +=  '_patience-'     + str(patience)
+
+
+            model_raw.fit(list_train_raw[in_n], list_train_raw[out_n],
+                      batch_size=batch_size,
+                      epochs=epochs,
+                      callbacks = [cb],
+                      verbose=1)
+
+            model_std.fit(list_train_std[in_n], list_train_std[out_n],
+                      batch_size=batch_size,
+                      epochs=epochs,
+                      callbacks = cb,
+                      verbose=1)
+
+            save_regression(model_raw, model_std, model_name)
+            #model_raw.save(parent_path / 'results' / theme_name / 'deeplearning' / 'models' / 'std.h5', include_optimizer=False)
+            #model_std.save(parent_path / 'results' / theme_name / 'deeplearning' / 'models' / 'std.h5', include_optimizer=False)
+
+
+        def objective_dl(trial):
+            layers_depth    = trial.suggest_int('layers_depth', 1 , 10)
+            units_size      = trial.suggest_int('units_size', 10, 1000)
+            keep_prob       = trial.suggest_uniform('keep_prob', 0, 0.9)
+            patience        = trial.suggest_int('patience', 5 , 10000)
+
+            dl_params = {'layers_depth': layers_depth,
+                        'units_size': units_size,
+                        'keep_prob': keep_prob,
+                        'patience': patience
+                        }
+
+            model_std = get_model(*dl_params)
+            model_std.fit(list_train_std[in_n], list_train_std[out_n])
+            y_pred = model.predict(list_val_std[in_n])
+
+            return mean_squared_error(list_val_std[out_n], y_pred)
+
+        n_trials= 1 + Booleanvar_optuna_deeplearning.get()*5
+
+        study = optuna.create_study()
+        study.optimize(objective_dl, n_trials=n_trials)
+
+        for layers_depth, units_size, keep_prob, patience in \
+                                [(
+                                study.best_params['layers_depth'],
+                                study.best_params['units_size'],
+                                study.best_params['keep_prob'],
+                                study.best_params['patience']
+                                )]:
+
+            batch_size  = 30
+            epochs   = 10
+
+            dl_params = {'layers_depth': layers_depth,
+                        'units_size': units_size,
+                        'keep_prob': keep_prob,
+                        'patience': patience}
+
+            model_raw = get_model(*dl_params)
+            model_std = get_model(*dl_params)
+
+            model_name =   'dl_best'
             model_name +=  '_depth-'        + str(layers_depth)
             model_name +=  '_unit-'         + str(units_size)
             model_name +=  '_drop-'         + str(keep_prob)
@@ -1594,8 +1657,7 @@ def learning():
                       verbose=1)
 
             save_regression(model_raw, model_std, model_name)
-            #model_raw.save(parent_path / 'results' / theme_name / 'deeplearning' / 'models' / 'std.h5', include_optimizer=False)
-            #model_std.save(parent_path / 'results' / theme_name / 'deeplearning' / 'models' / 'std.h5', include_optimizer=False)
+
 
         allmodel_results_df.to_csv('comparison of methods.csv')
 
