@@ -5,7 +5,6 @@
 # (c) 2019 Horie Yuki Central Glass
 
 from __future__ import print_function
-
 from pathlib import Path
 
 import os
@@ -329,6 +328,8 @@ def learning():
     plt.figure(figsize=(5,5))
     sns.heatmap(in_output_raw_df.corr(), cmap = 'Oranges',annot=False, linewidths = .5)
     plt.savefig(parent_path / 'results' /  theme_name / 'correlation_coefficient.png', dpi = 240)
+    plt.close()
+
 
     #######  extract descision tree   ################################################
     def tree_to_code(tree, feature_names):
@@ -460,6 +461,7 @@ def learning():
 
             plt.title("importances-" + model_name)
             plt.savefig(parent_path / 'results' / theme_name / 'importance' / (str(model_name)+ '.png'), dpi = 240)
+            plt.close()
             return
 
 
@@ -471,7 +473,6 @@ def learning():
             #print('size', len((pred_train)), len(list_train_raw[out_n]))
 
             from PIL import Image
-
             plt.figure(figsize=(5,5))
             plt.scatter(list_train_raw[out_n], pred_train, label = 'Train', c = 'blue')
             plt.title("-" + model_name)
@@ -479,13 +480,17 @@ def learning():
             plt.ylabel('Predicted value')
             plt.scatter(list_test_raw[out_n], pred_test, c = 'lightgreen', label = 'Test', alpha = 0.8)
             plt.legend(loc = 4)
+            #print('before scatter figure')
             plt.savefig(parent_path / 'results' / theme_name / 'scatter_diagram' /  (str(model_name) + '_scatter.png'))
+            #print('saved scatter figure')
+            plt.close()
 
         global allmodel_results_raw_df
         global allmodel_results_std_df
         global allmodel_results_stdtoraw_df
         global allmodel_bayesian_opt_df
 
+        print('predict the test value')
         train_output_predict_raw    = model_raw.predict(list_train_raw[in_n])
         test_output_predict_raw     = model_raw.predict(list_test_raw[in_n])
 
@@ -564,7 +569,7 @@ def learning():
         train_result_stdtoraw_df.to_csv(parent_path / 'results' / theme_name / 'traintest_stdtoraw'/ (str(model_name) +  '_train_stdtoraw.csv'))
         test_result_stdtoraw_df.to_csv(parent_path / 'results' / theme_name / 'traintest_stdtoraw'/ (str(model_name) +  '_test_stdtoraw.csv'))
 
-
+        #print('make the scatter diagram of raw')
         save_scatter_diagram(model_raw, model_name + '_raw')
         save_scatter_diagram(model_std, model_name + '_std')
 
@@ -585,12 +590,13 @@ def learning():
             model_parameter_std_df.to_csv(parent_path / 'results' / theme_name / 'parameter_std' / (str(model_name) + '_parameter.csv'))
 
         if hasattr(model_raw, 'tree_') == True:
+            print('tree')
             save_tree_topdf(model_raw, model_name)
             pass
 
 
         if hasattr(model_raw, 'feature_importances_') == True:
-
+            print('feature_importances')
             importances = pd.Series(model_raw.feature_importances_)
             importances = np.array(importances)
 
@@ -598,15 +604,13 @@ def learning():
 
             # initialization of plt
             plt.clf()
-
             plt.bar(label, importances)
-
             plt.xticks(rotation=90)
             plt.xticks(fontsize=8)
             plt.rcParams["font.size"] = 12
-
             plt.title("importance in the tree " + str(theme_name))
             plt.savefig(parent_path / 'results' / theme_name / 'importance' / (str(model_name) + '.png'), dpi = 240)
+            plt.close()
 
 
         if hasattr(model_raw, 'estimators_') == True:
@@ -784,6 +788,7 @@ def learning():
         plt.scatter(list_test_raw[out_n], pred_test, c = 'lightgreen', label = 'Test', alpha = 0.8)
         plt.legend(loc = 4)
         plt.savefig(parent_path / 'results' / theme_name / 'meas_pred.png')
+        plt.close()
 
         img1 = Image.open(parent_path / 'results' / theme_name / 'meas_pred.png')
 
@@ -807,6 +812,7 @@ def learning():
 
         plt.title("-" + model_name)
         plt.savefig(parent_path / 'results' / theme_name / 'tmp_importances.png', dpi = 240)
+        plt.close()
 
         img2 = Image.open(parent_path / 'results' / theme_name / 'tmp_importances.png')
 
@@ -866,7 +872,7 @@ def learning():
             gridsearch_input_std_df = pd.DataFrame(gridsearch_input_std, columns = list_feature_names[in_n])
 
 
-        n_trials= 25 + Booleanvar_optuna_sklearn.get()*100
+        n_trials= 1 + Booleanvar_optuna_sklearn.get()*1
 
         ##################### Linear Regression #####################
 
@@ -1509,28 +1515,17 @@ def learning():
 
 
         def get_model(layers_depth, units_size, keep_prob, patience):
-            print('layers_depth :',layers_depth)
-            print(float(layers_depth))
-            print(int(float(layers_depth)))
-            print('units_size :',units_size)
-            print(float(units_size))
-            print(int(float(units_size)))
-            print('keep_prob :',keep_prob)
-            print(float(keep_prob))
-            print(int(float(keep_prob)))
-            print('patience :',patience)
-            print(float(patience))
-            print(int(float(patience)))
-
 
             layers_depth = int(float(layers_depth))
             units_size = int(float(units_size))
 
+            print('layers_depth :',layers_depth)
+            print('units_size :',units_size)
+            print('keep_prob :',keep_prob)
+            print('patience :',patience)
+
             model = Sequential()
-            #model.add(InputLayer(input_shape=(input_num,)))
-            # 1Layer
             model.add(Dense(units_size, input_shape=(input_num,)))
-            #model.add(Dense(units_size, input_shape=(3,)))
             model.add(Activation('relu'))
             model.add(BatchNormalization(mode=0))
 
@@ -1592,12 +1587,14 @@ def learning():
             model_raw.fit(list_train_raw[in_n], list_train_raw[out_n],
                       batch_size=batch_size,
                       epochs=epochs,
-                      callbacks=[cb],                      verbose=1)
+                      callbacks=[cb],
+                      verbose=1)
 
             model_std.fit(list_train_std[in_n], list_train_std[out_n],
                       batch_size=batch_size,
                       epochs=epochs,
-                      callbacks=[cb],                      verbose=1)
+                      callbacks=[cb],
+                      verbose=1)
 
             save_regression(model_raw, model_std, model_name)
 
@@ -1606,7 +1603,7 @@ def learning():
             def get_model_1(layers_depth, units_size, keep_prob, patience):
                 return model
 
-            layers_depth    = trial.suggest_int('layers_depth', 1 , 10)
+            layers_depth    = trial.suggest_int('layers_depth', 3 , 10)
             units_size      = trial.suggest_int('units_size', 10, 1000)
             keep_prob       = trial.suggest_uniform('keep_prob', 0, 0.9)
             patience        = trial.suggest_int('patience', 5 , 10000)
@@ -1617,6 +1614,7 @@ def learning():
                         'patience': patience
                         }
 
+            '''
             model = Sequential()
             #model.add(InputLayer(input_shape=(input_num,)))
             # 1Layer
@@ -1636,14 +1634,16 @@ def learning():
             model.compile(loss='mse',
                     optimizer=keras.optimizers.Adam(),
                     metrics=['accuracy'])
+            '''
 
             model = get_model(**dl_params)
+
             model.fit(list_train_std[in_n], list_train_std[out_n])
             y_pred = model.predict(list_val_std[in_n])
 
             return mean_squared_error(list_val_std[out_n], y_pred)
 
-        n_trials= 1 + is_optuna_deeplearning*5
+        n_trials= 3 + is_optuna_deeplearning*2
 
         study = optuna.create_study()
         study.optimize(objective_dl, n_trials=n_trials)
@@ -1657,7 +1657,8 @@ def learning():
                                 )]:
 
             batch_size  = 30
-            epochs   = 10
+            epochs   = 7
+            print('optimized, best deeplearning start')
 
             dl_params = {'layers_depth': layers_depth,
                         'units_size': units_size,
@@ -1683,6 +1684,9 @@ def learning():
                       batch_size=batch_size,
                       epochs=epochs,
                       verbose=1)
+
+            print('finish')
+
 
             save_regression(model_raw, model_std, model_name)
 
