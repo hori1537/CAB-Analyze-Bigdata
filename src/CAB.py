@@ -76,18 +76,21 @@ def get_variablename(*args):
 np.random.seed(1)
 random.seed(1)
 
-# Graphviz path
-#http://spacegomi.hatenablog.com/entry/2018/01/26/170721
 current_path = Path.cwd()
 program_path = Path(__file__).parent.resolve()
+
+parent_path = program_path.parent.resolve()
+chkprint(parent_path)
+
+data_path           = parent_path / 'data'
+data_processed_path = data_path / 'processed'
+
+# Graphviz path
+#http://spacegomi.hatenablog.com/entry/2018/01/26/170721
 
 graphviz_path = program_path / 'release' / 'bin' / 'dot.exe'
 graphviz_path =graphviz_path.resolve()
 chkprint(program_path)
-parent_path = program_path.parent.resolve()
-chkprint(parent_path)
-data_path           = parent_path / 'data'
-data_processed_path = data_path / 'processed'
 
 columns_results = [ 'model_name',
                     'train_model_mse',
@@ -934,8 +937,6 @@ def learning():
         # refer https://www.slideshare.net/ShinyaShimizu/ss-11623505
 
         ##################### Regression of Ridge #####################
-
-
         for alpha in [0.01, 0.1, 1.0] :
             model = linear_model.Ridge(alpha = alpha)
             model_name = 'Ridge_'
@@ -1700,7 +1701,7 @@ def learning():
 
         allmodel_results_raw_df.to_csv(os.path.join(parent_path, 'results', theme_name, 'comparison of methods_raw.csv'))
         allmodel_results_std_df.to_csv(os.path.join(parent_path, 'results', theme_name, 'comparison of methods_std.csv'))
-        
+
 # settting
 # fix the np.random.seed, it can get the same results every time to run this program
 np.random.seed(1)
