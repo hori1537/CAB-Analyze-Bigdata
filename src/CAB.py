@@ -1,5 +1,4 @@
 
-
 # programmed by YUKI Horie, Glass Research Center 'yuki.horie@'
 # do not use JAPANESE!\
 # (c) 2019 Horie Yuki Central Glass
@@ -25,6 +24,7 @@ import seaborn as sns
 import pydotplus
 
 from PIL import ImageTk, Image
+from PIL import Image
 
 import tkinter
 import tkinter.filedialog
@@ -46,6 +46,9 @@ from sklearn.tree import _tree
 
 import GPy
 import GPyOpt
+
+import category_encoders
+
 
 try:
     import dtreeviz.trees
@@ -159,53 +162,7 @@ def learning():
     input_num   = int(t_input_clm_num.get())    # input data  columns in csv file
     output_num  = int(t_output_clm_num.get())   # output data columns in csv file
 
-    # csv category information
-    category_list = []
-
-    input_num_plus = 0
-    output_num_plus = 0
-
-    for column_name in category_list:
-        column_nth = raw_data_df.columns.get_loc(column_name)
-        num_plus = raw_data_df[column_name].nunique()
-        #print(num_plus)
-
-        if column_nth <= info_num + input_num:
-            input_num_plus += num_plus-1
-        elif column_nth < info_num + input_num:
-            output_num_plus += num_plus-1
-
-        pass
-
-    input_num   += input_num_plus
-    output_num  += output_num_plus
-    list_num    = [input_num, output_num]
-
-    def get_ordinal_mapping(obj):
-
-        listx = list()
-        for x in obj.category_mapping:
-            listx.extend([tuple([x['col']])+ i for i in x['mapping']])
-        df_ord_map = pd.DataFrame(listx)
-        return df_ord_map
-
-    try:
-        import category_encoders
-
-        ce_onehot   = category_encoders.OneHotEncoder(cols = category_list, handle_unknown = 'impute')
-        ce_binary   = category_encoders.BinaryEncoder(cols = category_list, handle_unknown = 'impute')
-
-        ce_onehot.fit_transform(raw_data_df)
-        raw_data_df = ce_binary.fit_transform(raw_data_df)
-
-        #get_ordinal_mapping(ce_onehot)
-        #print(get_ordinal_mapping(ce_onehot))
-
-    except:
-        print('Error - category_encoders')
-        pass
-
-    #raw_data_df = pd.read_csv(open(str(address_) + str(CSV_NAME) ,encoding="utf-8_sig"))
+    #processed_data_df = pd.read_csv(open(str(address_) + str(CSV_NAME) ,encoding="utf-8_sig"))
     try:
         raw_data_df = pd.read_csv(open(csv_path ,encoding="utf-8_sig"))
         print('utf-8で読み込みました')
@@ -215,21 +172,48 @@ def learning():
     else:
         pass
 
-
     # csv information data columns
+    raw_data_info_col    = info_num
+    raw_data_input_col   = info_num + input_num
+    raw_data_output_col  = info_num + input_num + output_num
+
+    info_raw_df         = raw_data_df.iloc[:, 0         : raw_data_info_col]
+    info_processed_df   = info_raw_df
+
+    in_output_raw_df    = raw_data_df.iloc[:, raw_data_info_col  : raw_data_output_col]
+
+    # one-hot vectorize
+    category_data_df = in_output_raw_df.select_dtypes(exclude=['number', 'bool'])
+    category_list = list(category_data_df.columns)
+    print(category_list)
+    print(type(category_list))
+
+    ce_onehot   = category_encoders.OneHotEncoder(cols = category_list, handle_unknown = 'impute')
+    processed_data_df = ce_onehot.fit_transform(in_output_raw_df)
+
+    input_num_plus= len(processed_data_df.columns) - len(in_output_raw_df.columns)
+
+    input_num   += input_num_plus
+    list_num    = [input_num, output_num]
+
+    print('input_num', input_num)
+    print('output_num', output_num)
+
     info_col    = info_num
     input_col   = info_num + input_num
     output_col  = info_num + input_num + output_num
 
-    info_raw_df         = raw_data_df.iloc[:, 0         : info_col]
-    input_raw_df        = raw_data_df.iloc[:, info_col  : input_col]
-    output_raw_df       = raw_data_df.iloc[:, input_col : output_col]
-    in_output_raw_df    = raw_data_df.iloc[:, info_col  : output_col]
-    list_df             = [input_raw_df, output_raw_df]
+    print(processed_data_df.head())
+    print(processed_data_df.describe())
 
-    info_feature_names              = info_raw_df.columns
-    input_feature_names             = input_raw_df.columns
-    output_feature_names            = output_raw_df.columns
+    input_processed_df  = processed_data_df.iloc[:, info_col  : input_col]
+    output_processed_df = processed_data_df.iloc[:, input_col : output_col]
+    in_output_processed_df = pd.concat([input_processed_df, output_processed_df], axis=1)
+    list_df             = [input_processed_df, output_processed_df]
+
+    info_feature_names              = info_processed_df.columns
+    input_feature_names             = input_processed_df.columns
+    output_feature_names            = output_processed_df.columns
     list_feature_names              = [input_feature_names, output_feature_names]
 
     predict_input_feature_names     = list(map(lambda x:x + '-predict' , input_feature_names))
@@ -241,12 +225,12 @@ def learning():
     output_sc_model     = StandardScaler()
     list_sc_model       = [input_sc_model, output_sc_model]
 
-    in_output_std_df    = pd.DataFrame(in_output_sc_model.fit_transform(in_output_raw_df))
-    input_std_df        = pd.DataFrame(input_sc_model.fit_transform(input_raw_df))
-    output_std_df       = pd.DataFrame(output_sc_model.fit_transform(output_raw_df))
+    in_output_std_df    = pd.DataFrame(in_output_sc_model.fit_transform(in_output_processed_df))
+    input_std_df        = pd.DataFrame(input_sc_model.fit_transform(input_processed_df))
+    output_std_df       = pd.DataFrame(output_sc_model.fit_transform(output_processed_df))
 
-    input_raw_des   = input_raw_df.describe()
-    output_raw_des  = output_raw_df.describe()
+    input_raw_des   = input_processed_df.describe()
+    output_raw_des  = output_processed_df.describe()
 
     input_raw_max   = input_raw_des.loc['max']
     input_raw_min   = input_raw_des.loc['min']
@@ -275,7 +259,7 @@ def learning():
 
     np.random.seed(10)
     random.seed(10)
-    train_raw_df, test_raw_df  = train_test_split(in_output_raw_df, test_size=0.2)
+    train_raw_df, test_raw_df  = train_test_split(in_output_processed_df, test_size=0.2)
     train_raw_df, val_raw_df   = train_test_split(train_raw_df, test_size=0.1)
 
     # transform from pandas dataframe to numpy array
@@ -331,8 +315,23 @@ def learning():
     plt.figure(figsize=(5,5))
     sns.heatmap(in_output_raw_df.corr(), cmap = 'Oranges',annot=False, linewidths = .5)
     plt.savefig(parent_path / 'results' /  theme_name / 'correlation_coefficient.png', dpi = 240)
-    plt.close()
+    #plt.close()
 
+
+    plt.figure(figsize=(5,5))
+    sns.pairplot(in_output_raw_df)
+    plt.savefig(parent_path / 'results' /  theme_name / 'pairplot.png', dpi = 240)
+    from PIL import Image
+    Image.MAX_IMAGE_PIXELS = None
+    img4 = Image.open(parent_path / 'results' / theme_name / 'pairplot.png')
+    img4_resize = img4.resize((photo_size, photo_size), Image.LANCZOS)
+    img4_resize.save(parent_path / 'results' / theme_name / 'pairplot_resized.png')
+
+    global image_pairplot
+    image_open = Image.open(parent_path / 'results' / theme_name / 'pairplot_resized.png')
+    image_pairplot = ImageTk.PhotoImage(image_open, master=frame2)
+
+    canvas_pairplot.create_image(int(photo_size/2),int(photo_size/2), image=image_pairplot)
 
     #######  extract descision tree   ################################################
     def tree_to_code(tree, feature_names):
@@ -430,8 +429,6 @@ def learning():
             # the Graphviz2.38 dot.exe
             graph.progs = {'dot':graphviz_path}
 
-            #graph.write_pdf('results' + os.sep + theme_name +  os.sep + 'sklearn'+ os.sep + 'tree'+ os.sep
-            #                 + model_name + '.pdf')
             #graph.write_pdf(model_name + '.pdf')
 
             #graph.write_pdf(os.path.join(str(parent_path.resolve()), 'results', theme_name, 'sklearn', 'tree', str(model_name) + '.pdf'))
@@ -464,7 +461,7 @@ def learning():
 
             plt.title("importances-" + model_name)
             plt.savefig(parent_path / 'results' / theme_name / 'importance' / (str(model_name)+ '.png'), dpi = 240)
-            plt.close()
+            #plt.close()
             return
 
 
@@ -475,7 +472,7 @@ def learning():
 
             #print('size', len((pred_train)), len(list_train_raw[out_n]))
 
-            from PIL import Image
+
             plt.figure(figsize=(5,5))
             plt.scatter(list_train_raw[out_n], pred_train, label = 'Train', c = 'blue')
             plt.title("-" + model_name)
@@ -486,14 +483,14 @@ def learning():
             #print('before scatter figure')
             plt.savefig(parent_path / 'results' / theme_name / 'scatter_diagram' /  (str(model_name) + '_scatter.png'))
             #print('saved scatter figure')
-            plt.close()
+            #plt.close()
 
         global allmodel_results_raw_df
         global allmodel_results_std_df
         global allmodel_results_stdtoraw_df
         global allmodel_bayesian_opt_df
 
-        print('predict the test value')
+        #print('predict the test value')
         train_output_predict_raw    = model_raw.predict(list_train_raw[in_n])
         test_output_predict_raw     = model_raw.predict(list_test_raw[in_n])
 
@@ -580,7 +577,7 @@ def learning():
             model_params        = model_std.get_params()
             params_df           = pd.DataFrame([model_std.get_params])
 
-        if hasattr(model_raw, 'intercept_') == True &  hasattr(model_std, 'coef_') == True:
+        if hasattr(model_raw, 'intercept_') == True &  hasattr(model_raw, 'coef_') == True:
             model_intercept_raw_df  = pd.DataFrame(model_raw.intercept_)
             model_coef_raw_df       = pd.DataFrame(model_raw.coef_)
             model_parameter_raw_df  = pd.concat([model_intercept_raw_df, model_coef_raw_df])
@@ -613,7 +610,7 @@ def learning():
             plt.rcParams["font.size"] = 12
             plt.title("importance in the tree " + str(theme_name))
             plt.savefig(parent_path / 'results' / theme_name / 'importance' / (str(model_name) + '.png'), dpi = 240)
-            plt.close()
+            #plt.close()
 
 
         if hasattr(model_raw, 'estimators_') == True:
@@ -686,12 +683,11 @@ def learning():
             print('start the bayesian optimaization')
             def function_for_bayesian(x):
 
-                optimize_type = var_bayesian.get()
                 if optimize_type == 0:
                     #max
                     return model_std.predict(x) * -1
                 elif optimize_type == 1:
-                    #max
+                    #min
                     return model_std.predict(x)
                 elif optimize_type ==2 and t_bayesian_val.get != '':
                     target_std_value = list_sc_model[out_n].transform(t_bayesian_val.get())
@@ -704,7 +700,6 @@ def learning():
 
             if inv_ == 0 and list_num[out_n] ==1 :
                 bounds = []
-                print(list_num[in_n])
                 for i in range(list_num[in_n]):
                     bounds.append({'name': list_feature_names[in_n][i] , 'type': 'continuous', 'domain': (list_std_min[in_n][i],list_std_max[in_n][i])})
 
@@ -721,8 +716,6 @@ def learning():
                 print(model_name)
                 model_name_df = pd.Series(model_name)
                 optimized_result_df = pd.concat([model_name_df, optimized_input_df, optimized_output_df], axis =1)
-                #optimized_result_df.to_csv('results' + os.sep + theme_name +  os.sep + 'sklearn'+ os.sep + 'bayesian_opt' + os.sep
-                #                     + str(model_name) + '_bayesian_result.csv')
                 optimized_result_df.to_csv(parent_path / 'results' / theme_name / 'bayesian_opt' / (str(model_name)+ '_bayesian_result.csv'))
 
                 allmodel_bayesian_opt_df = pd.concat([allmodel_bayesian_opt_df, optimized_result_df])
@@ -770,9 +763,6 @@ def learning():
         model_name  += 'RandomForestRegressor_'
         model_name  += 'max_depth_'+str(max_depth)
 
-        print('list_train_raw[in_n]')
-
-        print(list_train_raw[in_n])
         model.fit(list_train_raw[in_n], list_train_raw[out_n])
 
         importances         = np.array(model.feature_importances_)
@@ -791,7 +781,7 @@ def learning():
         plt.scatter(list_test_raw[out_n], pred_test, c = 'lightgreen', label = 'Test', alpha = 0.8)
         plt.legend(loc = 4)
         plt.savefig(parent_path / 'results' / theme_name / 'meas_pred.png')
-        plt.close()
+        #plt.close()
 
         img1 = Image.open(parent_path / 'results' / theme_name / 'meas_pred.png')
 
@@ -815,7 +805,7 @@ def learning():
 
         plt.title("-" + model_name)
         plt.savefig(parent_path / 'results' / theme_name / 'tmp_importances.png', dpi = 240)
-        plt.close()
+        #plt.close()
 
         img2 = Image.open(parent_path / 'results' / theme_name / 'tmp_importances.png')
 
@@ -886,6 +876,17 @@ def learning():
         LinearRegression_model = model
         LinearRegression_model_name = model_name
 
+        ##################### heil–Sen #####################
+
+        model = MultiOutputRegressor(linear_model.TheilSenRegressor())
+        model_name = 'TheilSen_'
+
+        fit_model_std_raw(model, model_name)
+        LinearRegression_model = model
+        LinearRegression_model_name = model_name
+
+
+
         ##################### Regression of Stochastic Gradient Descent #####################
         max_iter = 1000
 
@@ -915,7 +916,6 @@ def learning():
         def objective_svr(trial):
             svr_c = trial.suggest_loguniform('svr_c', 1e-2, 1e6)
             epsilon = trial.suggest_loguniform('epsilon', 1e-7, 1e7)
-            svr = svm.SVR(C=svr_c, epsilon=epsilon)
             svr = MultiOutputRegressor(svm.SVR(kernel = 'rbf', C = svr_c, epsilon=epsilon))
             svr.fit(list_train_raw[in_n], list_train_raw[out_n])
             y_pred = svr.predict(list_val_raw[in_n])
@@ -1430,11 +1430,22 @@ def learning():
                                  ]
         allmodel_r2_score_df = pd.DataFrame()
 
-
         ################# to csv ##############################
         allmodel_results_raw_df.to_csv(os.path.join(parent_path, 'results', theme_name, 'comparison of methods_raw.csv'))
         allmodel_results_std_df.to_csv(os.path.join(parent_path, 'results', theme_name, 'comparison of methods_std.csv'))
-        allmodel_bayesian_opt_df.to_csv(os.path.join(parent_path, 'results', theme_name, 'bayesian_op.csv'))
+
+        if t_bayesian_val.get().isnumeric == True:
+            target_std_value = list_sc_model[out_n].transform(t_bayesian_val.get())
+        else:
+            target_std_value = 'None'
+
+
+        optimize_dic = {0: 'max', 1: 'min', 2:target_std_value}
+
+        optimize_type = var_bayesian.get()
+        print(optimize_dic[optimize_type])
+
+        allmodel_bayesian_opt_df.to_csv(os.path.join(parent_path, 'results', theme_name, 'bayesian_opt_' +str(optimize_dic[optimize_type])+  '.csv'))
         #######################################################
 
         print('finish sklearn')
@@ -1497,7 +1508,7 @@ def learning():
 
     ##################### Deep Learning #####################
     if is_dl == False:
-        pass
+        print('do not start deeplearning')
     elif is_dl == True :
         print('start deeplearning')
 
@@ -1702,6 +1713,7 @@ def learning():
         allmodel_results_raw_df.to_csv(os.path.join(parent_path, 'results', theme_name, 'comparison of methods_raw.csv'))
         allmodel_results_std_df.to_csv(os.path.join(parent_path, 'results', theme_name, 'comparison of methods_std.csv'))
 
+
 # settting
 # fix the np.random.seed, it can get the same results every time to run this program
 np.random.seed(1)
@@ -1710,9 +1722,8 @@ random.seed(1)
 
 def choose_csv():
     #tk_c = tkinter.Tk()
-
     csv_file_path = tkinter.filedialog.askopenfilename(initialdir = data_processed_path,
-    title = 'choose the csv', filetypes = [('csv file', '*.csv')])
+                        title = 'choose the csv', filetypes = [('csv file', '*.csv')])
 
     t_csv_filename.set(str(Path(csv_file_path).name))
     t_csv_filepath.set(csv_file_path)
@@ -1847,6 +1858,22 @@ else:
     canvas_correlation_coefficient.create_image(int(photo_size/2),int(photo_size/2), image=image_correlation_coefficient)
     canvas_correlation_coefficient.grid(row=2, column = 1, sticky= W)
 
+canvas_pairplot = tkinter.Canvas(frame2, width = photo_size, height = photo_size)
+try:
+    image_tmp_open = Image.open('logo\logo4.png')
+except FileNotFoundError:
+    print('logo4.png was not found')
+else:
+    global image_pairplot
+    image_pairplot = ImageTk.PhotoImage(image_tmp_open, master=frame2)
+    #values is center position
+    canvas_pairplot.create_image(int(photo_size/2),int(photo_size/2), image=image_pairplot)
+    canvas_pairplot.grid(row=2, column = 2, sticky= W)
+
+
+
+
+
 label_csv.grid(row=2,column=1,sticky=E)
 entry_csv_filename.grid(row=2,column=2,sticky=W)
 button_choose_csv.grid(row=1,column=2,sticky=W)
@@ -1879,5 +1906,6 @@ button_learning.grid(row = 14 , column = 2, sticky = W)
 
 for child in frame1.winfo_children():
     child.grid_configure(padx=5, pady=5)
-
+for child in frame2.winfo_children():
+    child.grid_configure(padx=5, pady=5)
 root.mainloop()
