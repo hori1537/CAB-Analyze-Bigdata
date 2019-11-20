@@ -59,7 +59,7 @@ except:
     pass
 
 import xgboost as xgb
-#from xgboost import plot_tree # sklearn has also plot_tree, so do not import plot_Tree
+#from xgboost import plot_tree     #sklearn has also plot_tree, so dont import plot_Tree
 
 import optuna
 
@@ -105,6 +105,9 @@ columns_results = [ 'model_name',
 
 allmodel_results_raw_df = pd.DataFrame(columns = columns_results)
 allmodel_results_std_df = pd.DataFrame(columns = columns_results)
+
+summary_results_raw_df = pd.DataFrame(columns = columns_results)
+summary_results_std_df = pd.DataFrame(columns = ['model_name', 'train_model_std_mse',  'test_model_std_mse'])
 
 # make the folder for saving the results
 def chk_mkdir(paths):
@@ -203,7 +206,9 @@ def learning():
     input_col   = info_num + input_num
     output_col  = info_num + input_num + output_num
 
+    print('processed_data_df.head()')
     print(processed_data_df.head())
+    print('processed_data_df.describe()')
     print(processed_data_df.describe())
 
     input_processed_df  = processed_data_df.iloc[:, info_col  : input_col]
@@ -254,13 +259,13 @@ def learning():
     # split train data and test data from the in_output_std_df
     np.random.seed(10)
     random.seed(10)
-    train_std_df, test_std_df  = train_test_split(in_output_std_df, test_size=0.2)
-    train_std_df, val_std_df   = train_test_split(train_std_df, test_size=0.1)
+    train_std_df, test_std_df  = train_test_split(in_output_std_df, test_size=0.05)
+    train_std_df, val_std_df   = train_test_split(train_std_df, test_size=0.05)
 
     np.random.seed(10)
     random.seed(10)
-    train_raw_df, test_raw_df  = train_test_split(in_output_processed_df, test_size=0.2)
-    train_raw_df, val_raw_df   = train_test_split(train_raw_df, test_size=0.1)
+    train_raw_df, test_raw_df  = train_test_split(in_output_processed_df, test_size=0.05)
+    train_raw_df, val_raw_df   = train_test_split(train_raw_df, test_size=0.05)
 
     # transform from pandas dataframe to numpy array
     train_raw_np = np.array(train_raw_df)
@@ -311,6 +316,12 @@ def learning():
     list_train_std_df                   = [train_input_std_df , train_output_std_df ]
     list_test_std_df                    = [test_input_std_df  , test_output_std_df ]
     list_val_std_df                     = [val_input_std_df  , val_output_std_df ]
+
+    print('')
+    print('train : ',len(train_input_std_df))
+    print('test : ',len(test_input_std_df))
+    print('val : ',len(val_input_std_df))
+    print('')
 
     plt.figure(figsize=(5,5))
     sns.heatmap(in_output_raw_df.corr(), cmap = 'Oranges',annot=False, linewidths = .5)
@@ -369,8 +380,8 @@ def learning():
         gridsearch_predict_raw_df       = pd.concat([gridsearch_input_raw_df, gridsearch_predict_raw_df], axis = 1)
         gridsearch_predict_stdtoraw_df  = pd.concat([gridsearch_input_std_df, gridsearch_predict_stdtoraw_df], axis = 1)
 
-        gridsearch_predict_raw_df.to_csv(     parent_path / 'results' / theme_name / 'predict_raw' / (str(model_name) + '_predict.csv'))
-        gridsearch_predict_stdtoraw_df.to_csv(parent_path / 'results' / theme_name / 'predict_stdtoraw' / (str(model_name)+ '_predict.csv'))
+        gridsearch_predict_raw_df.to_csv(     parent_path / 'results' / theme_name / 'predict_raw' / (str(model_name) + '_predict.csv'), index=False)
+        gridsearch_predict_stdtoraw_df.to_csv(parent_path / 'results' / theme_name / 'predict_stdtoraw' / (str(model_name)+ '_predict.csv'), index=False)
 
         return
 
@@ -411,9 +422,9 @@ def learning():
         model_raw.fit(list_train_raw[in_n], list_train_raw[out_n])
         model_std.fit(list_train_std[in_n], list_train_std[out_n])
 
-        save_regression(model_raw, model_std, model_name)
+        model_raw, model_std = save_regression(model_raw, model_std, model_name)
 
-        return
+        return model_raw, model_std
 
 
     def save_regression(model_raw, model_std, model_name):
@@ -464,7 +475,6 @@ def learning():
             #plt.close()
             return
 
-
         def save_scatter_diagram(model, model_name):
 
             pred_train = model.predict(list_train_raw[in_n])
@@ -490,16 +500,13 @@ def learning():
         global allmodel_results_stdtoraw_df
         global allmodel_bayesian_opt_df
 
-        #print('predict the test value')
         train_output_predict_raw    = model_raw.predict(list_train_raw[in_n])
         test_output_predict_raw     = model_raw.predict(list_test_raw[in_n])
-
         train_output_predict_std    = model_std.predict(list_train_std[in_n])
         test_output_predict_std     = model_std.predict(list_test_std[in_n])
 
         train_output_predict_stdtoraw    = model_std.predict(list_train_std[in_n])
         test_output_predict_stdtoraw     = model_std.predict(list_test_std[in_n])
-
         train_output_predict_stdtoraw    = list_sc_model[out_n].inverse_transform(train_output_predict_std)
         test_output_predict_stdtoraw     = list_sc_model[out_n].inverse_transform(test_output_predict_std)
 
@@ -562,12 +569,12 @@ def learning():
         allmodel_results_raw_df = pd.concat([allmodel_results_raw_df, results_raw_df])
         allmodel_results_std_df = pd.concat([allmodel_results_std_df, results_std_df])
 
-        train_result_raw_df.to_csv(parent_path / 'results' / theme_name / 'traintest_raw'/ (str(model_name) + '_train_raw.csv'))
-        test_result_raw_df.to_csv(parent_path / 'results' / theme_name / 'traintest_raw'/ (str(model_name) + '_test_raw.csv'))
-        train_result_std_df.to_csv(parent_path / 'results' / theme_name / 'traintest_std'/ (str(model_name) + '_train_std.csv'))
+        train_result_raw_df.to_csv(parent_path / 'results' / theme_name / 'traintest_raw'/ (str(model_name) + '_train_raw.csv'), index=False)
+        test_result_raw_df.to_csv(parent_path / 'results' / theme_name / 'traintest_raw'/ (str(model_name) + '_test_raw.csv'), index=False)
+        train_result_std_df.to_csv(parent_path / 'results' / theme_name / 'traintest_std'/ (str(model_name) + '_train_std.csv'), index=False)
         test_result_std_df.to_csv(parent_path / 'results' / theme_name / 'traintest_std'/ (str(model_name) + '_test_std.csv'))
-        train_result_stdtoraw_df.to_csv(parent_path / 'results' / theme_name / 'traintest_stdtoraw'/ (str(model_name) +  '_train_stdtoraw.csv'))
-        test_result_stdtoraw_df.to_csv(parent_path / 'results' / theme_name / 'traintest_stdtoraw'/ (str(model_name) +  '_test_stdtoraw.csv'))
+        train_result_stdtoraw_df.to_csv(parent_path / 'results' / theme_name / 'traintest_stdtoraw'/ (str(model_name) +  '_train_stdtoraw.csv'), index=False)
+        test_result_stdtoraw_df.to_csv(parent_path / 'results' / theme_name / 'traintest_stdtoraw'/ (str(model_name) +  '_test_stdtoraw.csv'), index=False)
 
         #print('make the scatter diagram of raw')
         save_scatter_diagram(model_raw, model_name + '_raw')
@@ -581,13 +588,13 @@ def learning():
             model_intercept_raw_df  = pd.DataFrame(model_raw.intercept_)
             model_coef_raw_df       = pd.DataFrame(model_raw.coef_)
             model_parameter_raw_df  = pd.concat([model_intercept_raw_df, model_coef_raw_df])
-            model_parameter_raw_df.to_csv(parent_path / 'results' / theme_name / 'parameter_raw' / (str(model_name) + '_parameter.csv'))
+            model_parameter_raw_df.to_csv(parent_path / 'results' / theme_name / 'parameter_raw' / (str(model_name) + '_parameter.csv'), index=False)
 
         if hasattr(model_std, 'intercept_') == True &  hasattr(model_std, 'coef_') == True:
             model_intercept_std_df  = pd.DataFrame(model_std.intercept_)
             model_coef_std_df       = pd.DataFrame(model_std.coef_)
             model_parameter_std_df  = pd.concat([model_intercept_std_df, model_coef_std_df])
-            model_parameter_std_df.to_csv(parent_path / 'results' / theme_name / 'parameter_std' / (str(model_name) + '_parameter.csv'))
+            model_parameter_std_df.to_csv(parent_path / 'results' / theme_name / 'parameter_std' / (str(model_name) + '_parameter.csv'), index=False)
 
         if hasattr(model_raw, 'tree_') == True:
             print('tree')
@@ -716,10 +723,90 @@ def learning():
                 print(model_name)
                 model_name_df = pd.Series(model_name)
                 optimized_result_df = pd.concat([model_name_df, optimized_input_df, optimized_output_df], axis =1)
-                optimized_result_df.to_csv(parent_path / 'results' / theme_name / 'bayesian_opt' / (str(model_name)+ '_bayesian_result.csv'))
+                optimized_result_df.to_csv(parent_path / 'results' / theme_name / 'bayesian_opt' / (str(model_name)+ '_bayesian_result.csv'), index=False)
 
                 allmodel_bayesian_opt_df = pd.concat([allmodel_bayesian_opt_df, optimized_result_df])
             return
+
+        # end of save_regression
+        return model_raw, model_std
+
+
+
+
+    def save_summary(model_raw, model_std, model_name):
+        # save the RMSE, MSE, R2 of model (of major model)
+
+        global summary_results_raw_df
+        global summary_results_std_df
+
+        train_output_predict_raw    = model_raw.predict(list_train_raw[in_n])
+        test_output_predict_raw     = model_raw.predict(list_test_raw[in_n])
+        train_output_predict_std    = model_std.predict(list_train_std[in_n])
+        test_output_predict_std     = model_std.predict(list_test_std[in_n])
+
+        train_output_predict_stdtoraw    = model_std.predict(list_train_std[in_n])
+        test_output_predict_stdtoraw     = model_std.predict(list_test_std[in_n])
+        train_output_predict_stdtoraw    = list_sc_model[out_n].inverse_transform(train_output_predict_std)
+        test_output_predict_stdtoraw     = list_sc_model[out_n].inverse_transform(test_output_predict_std)
+
+        if hasattr(model_raw, 'score') == True:
+            train_model_raw_score   = model_raw.score(list_train_raw[in_n] , list_train_raw[out_n])
+            train_model_raw_score   = np.round(train_model_raw_score, 5)
+            test_model_raw_score    = model_raw.score(list_test_raw[in_n],   list_test_raw[out_n])
+            test_model_raw_score    = np.round(test_model_raw_score, 5)
+
+        if hasattr(model_raw, 'evaluate') == True:
+            train_model_raw_score   = model_raw.evaluate(list_train_raw[in_n] , list_train_raw[out_n])
+            train_model_raw_score   = np.round(train_model_raw_score, 5)
+            test_model_raw_score    = model_raw.evaluate(test_input_raw,   list_test_raw[out_n])
+            test_model_raw_score    = np.round(test_model_raw_score, 5)
+
+        if hasattr(model_std, 'score') == True:
+            train_model_std_score   = model_std.score(list_train_std[in_n] , list_train_std[out_n])
+            train_model_std_score   = np.round(train_model_std_score, 5)
+            test_model_std_score    = model_std.score(list_test_std[in_n],   list_test_std[out_n])
+            test_model_std_score    = np.round(test_model_std_score, 5)
+
+        if hasattr(model_std, 'evaluate') == True:
+            train_model_std_score   = model_std.evaluate(list_train_std[in_n] , list_train_std[out_n])
+            train_model_std_score   = np.round(train_model_std_score, 5)
+            test_model_std_score    = model_std.evaluate(test_input_std,   list_test_std[out_n])
+            test_model_std_score    = np.round(test_model_std_score, 5)
+
+        train_output_predict_raw_df = pd.DataFrame(train_output_predict_raw, columns = list_predict_feature_names[out_n])
+        train_result_raw_df         = pd.concat([list_train_raw_df[in_n], train_output_predict_raw_df, list_train_raw_df[out_n]], axis=1)
+        test_output_predict_raw_df  = pd.DataFrame(test_output_predict_raw, columns = list_predict_feature_names[out_n])
+        test_result_raw_df          = pd.concat([list_test_raw_df[in_n], test_output_predict_raw_df, list_test_raw_df[out_n]], axis=1)
+
+        train_output_predict_std_df = pd.DataFrame(train_output_predict_std, columns = list_predict_feature_names[out_n])
+        train_result_std_df         = pd.concat([list_train_std_df[in_n], train_output_predict_std_df, list_train_std_df[out_n]], axis=1)
+        test_output_predict_std_df  = pd.DataFrame(test_output_predict_std, columns = list_predict_feature_names[out_n])
+        test_result_std_df          = pd.concat([list_test_std_df[in_n], test_output_predict_std_df, list_test_std_df[out_n]], axis=1)
+
+        train_output_predict_stdtoraw_df = pd.DataFrame(train_output_predict_stdtoraw, columns = list_predict_feature_names[out_n])
+        train_result_stdtoraw_df         = pd.concat([list_train_std_df[in_n], train_output_predict_stdtoraw_df, list_train_std_df[out_n]], axis=1)
+        test_output_predict_stdtoraw_df  = pd.DataFrame(test_output_predict_stdtoraw, columns = list_predict_feature_names[out_n])
+        test_result_stdtoraw_df          = pd.concat([list_test_std_df[in_n], test_output_predict_stdtoraw_df, list_test_std_df[out_n]], axis=1)
+
+        train_model_std_mse         = sklearn.metrics.mean_squared_error(list_train_std[out_n], train_output_predict_std)
+        train_model_std_rmse        = np.sqrt(train_model_std_mse)
+        test_model_std_mse          = sklearn.metrics.mean_squared_error(list_test_std[out_n], test_output_predict_std)
+        test_model_std_rmse         = np.sqrt(test_model_std_mse)
+
+        train_model_raw_mse         = sklearn.metrics.mean_squared_error(list_train_raw[out_n], train_output_predict_raw)
+        train_model_raw_rmse        = np.sqrt(train_model_raw_mse)
+        test_model_raw_mse          = sklearn.metrics.mean_squared_error(list_test_raw[out_n], test_output_predict_raw)
+        test_model_raw_rmse         = np.sqrt(test_model_raw_mse)
+
+        results_raw_df      = pd.DataFrame([model_name, train_model_raw_mse, train_model_raw_rmse, test_model_raw_mse, test_model_raw_rmse, train_model_raw_score, test_model_raw_score]).T
+        results_std_df      = pd.DataFrame([model_name, train_model_std_mse,  test_model_std_mse]).T
+
+        results_raw_df.columns = columns_results
+        results_std_df.columns = ['model_name', 'train_model_std_mse',  'test_model_std_mse']
+
+        summary_results_raw_df = pd.concat([summary_results_raw_df, results_raw_df])
+        summary_results_std_df = pd.concat([summary_results_std_df, results_std_df])
 
 
     if output_num != 1:
@@ -872,20 +959,21 @@ def learning():
         model = linear_model.LinearRegression()
         model_name = 'Linear_Regression_'
 
-        fit_model_std_raw(model, model_name)
-        LinearRegression_model = model
-        LinearRegression_model_name = model_name
+        model_raw, model_std = fit_model_std_raw(model, model_name)
+        model_name = 'Linear'
+        save_summary(model_raw, model_std, model_name)
 
         ##################### heil–Sen #####################
 
         model = MultiOutputRegressor(linear_model.TheilSenRegressor())
         model_name = 'TheilSen_'
 
-        fit_model_std_raw(model, model_name)
+        model_raw, model_std = fit_model_std_raw(model, model_name)
         LinearRegression_model = model
         LinearRegression_model_name = model_name
+        model_name = 'TheilSen'
 
-
+        save_summary(model_raw, model_std, model_name)
 
         ##################### Regression of Stochastic Gradient Descent #####################
         max_iter = 1000
@@ -894,11 +982,11 @@ def learning():
         model_name = 'MO_SGD_'
         model_name += 'max_i_'+str(max_iter)
 
-        fit_model_std_raw(model, model_name)
+        model_raw, model_std = fit_model_std_raw(model, model_name)
         Multi_SGD_model = model
         Multi_SGD_model_name = model_name
-
-
+        model_name = 'MO-SGD'
+        save_summary(model_raw, model_std, model_name)
         ##################### Regression of SVR #####################
 
         kernel_ = ['rbf']
@@ -910,7 +998,7 @@ def learning():
             model_name += '_k_'+str(kernel_)
             model_name += '_C_'+str(C_)
 
-            fit_model_std_raw(model, model_name)
+            model_raw, model_std = fit_model_std_raw(model, model_name)
 
 
         def objective_svr(trial):
@@ -932,7 +1020,11 @@ def learning():
             model_name += '_C_'+str(np.round(C_,2))
             model_name += '_e_'+str(np.round(epsilon,2))
 
-            fit_model_std_raw(model, model_name)
+            model_raw, model_std = fit_model_std_raw(model, model_name)
+
+            model_name = 'SGD'
+            save_summary(model_raw, model_std, model_name)
+
 
         # refer https://www.slideshare.net/ShinyaShimizu/ss-11623505
 
@@ -942,7 +1034,7 @@ def learning():
             model_name = 'Ridge_'
             model_name += 'a_'+str(alpha)
 
-            fit_model_std_raw(model, model_name)
+            model_raw, model_std = fit_model_std_raw(model, model_name)
 
         def objective_ridge(trial):
             alpha = trial.suggest_loguniform('alpha', 1e0, 1e6)
@@ -961,7 +1053,9 @@ def learning():
             model_name = 'Ridge_best_'
             model_name += 'a_'+str(np.round(alpha,2))
 
-            fit_model_std_raw(model, model_name)
+            model_raw, model_std = fit_model_std_raw(model, model_name)
+            model_name = 'Ridge'
+            save_summary(model_raw, model_std, model_name)
 
         ##################### Regression of KernelRidge #####################
         for alpha in [0.01, 1.0 ,100]:
@@ -969,7 +1063,7 @@ def learning():
             model_name = 'KRidge_'
             model_name += 'a_'+str(alpha)
 
-            fit_model_std_raw(model, model_name)
+            model_raw, model_std = fit_model_std_raw(model, model_name)
 
 
         def objective_kridge(trial):
@@ -989,7 +1083,10 @@ def learning():
             model_name = 'KRidge_best_'
             model_name += 'a_'+str(np.round(alpha,2))
 
-            fit_model_std_raw(model, model_name)
+            model_raw, model_std = fit_model_std_raw(model, model_name)
+            model_name = 'KRidge'
+            save_summary(model_raw, model_std, model_name)
+
 
         ##################### Regression of Lasso #####################
         for alpha in [0.01, 0.1, 1.0]:
@@ -997,7 +1094,7 @@ def learning():
             model_name = 'Lasso_'
             model_name += 'a_'+str(alpha)
 
-            fit_model_std_raw(model, model_name)
+            model_raw, model_std = fit_model_std_raw(model, model_name)
 
         def objective_lasso(trial):
             alpha = trial.suggest_loguniform('alpha', 1e0, 1e4)
@@ -1016,7 +1113,10 @@ def learning():
             model_name = 'Lasso_best_'
             model_name += 'a_'+str(np.round(alpha,2))
 
-            fit_model_std_raw(model, model_name)
+            model_raw, model_std = fit_model_std_raw(model, model_name)
+            model_name = 'Lasso'
+            save_summary(model_raw, model_std, model_name)
+
 
         ##################### Regression of Elastic Net #####################
 
@@ -1030,7 +1130,7 @@ def learning():
             model_name += 'a_'+str(alpha)
             model_name += 'l1_r_'+str(l1_ratio)
 
-            fit_model_std_raw(model, model_name)
+            model_raw, model_std = fit_model_std_raw(model, model_name)
 
         def objective_enet(trial):
             alpha = trial.suggest_loguniform('alpha', 1e0, 1e4)
@@ -1052,7 +1152,9 @@ def learning():
             model_name += 'a_'+str(np.round(alpha,2))
             model_name += 'l1_r_'+str(np.round(l1_ratio,2))
 
-            fit_model_std_raw(model, model_name)
+            model_raw, model_std = fit_model_std_raw(model, model_name)
+            model_name = 'EN'
+            save_summary(model_raw, model_std, model_name)
 
 
         ##################### Regression of MultiTaskLassoCV #####################
@@ -1062,25 +1164,25 @@ def learning():
         model_name = 'MT-Lasso_'
         model_name += 'max_i_'+str(max_iter)
 
-        fit_model_std_raw(model, model_name)
+        model_raw, model_std = fit_model_std_raw(model, model_name)
 
         ##################### Regression of Multi Task Elastic Net CV #####################
         model = linear_model.MultiTaskElasticNetCV()
 
         model_name = 'MT-ENet_'
-        fit_model_std_raw(model, model_name)
+        model_raw, model_std = fit_model_std_raw(model, model_name)
 
         ##################### Regression of OrthogonalMatchingPursuit #####################
         #model = linear_model.OrthogonalMatchingPursuit()
         #model_name = 'OrthogonalMatchingPursuit_'
 
-        #fit_model_std_raw(model, model_name)
+        #model_raw, model_std = fit_model_std_raw(model, model_name)
 
         ##################### Regression of BayesianRidge #####################
         model = MultiOutputRegressor(linear_model.BayesianRidge())
         model_name = 'MO_BRidge_'
 
-        fit_model_std_raw(model, model_name)
+        model_raw, model_std = fit_model_std_raw(model, model_name)
 
 
         def objective_bridge(trial):
@@ -1124,42 +1226,19 @@ def learning():
             model_name += '_a2_'+str(np.round(np.log(alpha_2),1))
             model_name += '_l1_'+str(np.round(np.log(lambda_1),1))
             model_name += '_l2_'+str(np.round(np.log(lambda_2),1))
-            fit_model_std_raw(model, model_name)
+            model_raw, model_std = fit_model_std_raw(model, model_name)
+            model_name = 'BRidge'
+            save_summary(model_raw, model_std, model_name)
 
 
-        ##################### Regression of PassiveAggressiveRegressor #####################
-        #model = MultiOutputRegressor(linear_model.PassiveAggressiveRegressor())
-        #model_name = 'MultiOutput PassiveAggressiveRegressor_'
-
-        #fit_model_std_raw(model, model_name)
-
-        ##################### Regression of PolynomialFeatures #####################
-        '''
-        from sklearn.preprocessing import PolynomialFeatures
-        from sklearn.pipeline import Pipeline
-        # http://techtipshoge.blogspot.com/2015/06/scikit-learn.html
-        # http://enakai00.hatenablog.com/entry/2017/10/13/145337
-
-        for degree in [2]:
-            model = Pipeline([
-                ('poly', PolynomialFeatures(degree = 2),
-                'linear', MultiOutputRegressor(linear_model.LinearRegression()))
-                ])
-
-            model_name = 'PolynomialFeatures_'
-            model_name += 'degree_' + str(degree)
-
-            fit_model_std_raw(model, model_name)
-        '''
 
         ##################### Regression of GaussianProcessRegressor #####################
-
         from sklearn.gaussian_process import GaussianProcessRegressor
 
         model = MultiOutputRegressor(GaussianProcessRegressor())
         model_name = 'MO-GPR_'
 
-        fit_model_std_raw(model, model_name)
+        model_raw, model_std = fit_model_std_raw(model, model_name)
 
         def objective_gpr(trial):
             alpha = trial.suggest_loguniform('alpha', 1e-14, 1e-6)
@@ -1184,41 +1263,10 @@ def learning():
             model = MultiOutputRegressor(GaussianProcessRegressor(alpha=alpha))
             model_name = 'MO-GPR_best'
             model_name += '_a_'+str(np.round(np.log(alpha),2))
-            fit_model_std_raw(model, model_name)
+            model_raw, model_std = fit_model_std_raw(model, model_name)
+            model_name = 'GPR'
+            save_summary(model_raw, model_std, model_name)
 
-
-
-        ##################### Regression of GaussianNB #####################
-
-        '''
-        from sklearn.naive_bayes import GaussianNB
-
-        model = MultiOutputRegressor(GaussianNB())
-        model_name = 'MultiOutput GaussianNB_'
-
-        fit_model_std_raw(model, model_name)
-        '''
-
-        ##################### Regression of GaussianNB #####################
-
-        '''
-        from sklearn.naive_bayes import  ComplementNB
-
-        model = ComplementNB()
-        model_name = 'ComplementNB_'
-
-        fit_model_std_raw(model, model_name)
-        '''
-
-        ##################### Regression of MultinomialNB #####################
-
-        '''
-        from sklearn.naive_bayes import MultinomialNB
-        model = MultinomialNB()
-        model_name = 'MultinomialNB_'
-
-        fit_model_std_raw(model, model_name)
-        '''
 
         ##################### Regression of DecisionTreeRegressor #####################
 
@@ -1227,7 +1275,7 @@ def learning():
             model_name = 'Tree_'
             model_name += 'max_d_'+str(max_depth)
 
-            fit_model_std_raw(model, model_name)
+            model_raw, model_std = fit_model_std_raw(model, model_name)
 
 
         def objective_dtr(trial):
@@ -1253,7 +1301,10 @@ def learning():
             model = sklearn.tree.DecisionTreeRegressor(max_depth = max_depth)
             model_name = 'Tree_best_'
             model_name += 'max_d_'+str(max_depth)
-            fit_model_std_raw(model, model_name)
+            model_raw, model_std = fit_model_std_raw(model, model_name)
+            model_name = 'DTR'
+            save_summary(model_raw, model_std, model_name)
+
 
 
 
@@ -1265,7 +1316,7 @@ def learning():
             model = MultiOutputRegressor(sklearn.tree.DecisionTreeRegressor(max_depth = max_depth))
             model_name = 'MO_Tree_'
             model_name += 'max_d_' + str(max_depth)
-            fit_model_std_raw(model, model_name)
+            model_raw, model_std = fit_model_std_raw(model, model_name)
 
         def objective_modtr(trial):
             max_depth = trial.suggest_int('max_depth', 2, 13)
@@ -1291,7 +1342,10 @@ def learning():
             model = MultiOutputRegressor(sklearn.tree.DecisionTreeRegressor(max_depth = max_depth))
             model_name = 'MO_Tree_best_'
             model_name += 'max_d_'+str(max_depth)
-            fit_model_std_raw(model, model_name)
+            model_raw, model_std = fit_model_std_raw(model, model_name)
+            model_name = 'M-DTR'
+            save_summary(model_raw, model_std, model_name)
+
 
         #################### Regression of RandomForestRegressor #####################
         for max_depth in [3,5,7,9,11]:
@@ -1301,7 +1355,7 @@ def learning():
             #model_name += get_variablename(max_depth)
             model_name += 'max_d_'+str(max_depth)
 
-            fit_model_std_raw(model, model_name)
+            model_raw, model_std = fit_model_std_raw(model, model_name)
 
 
         def objective_rfr(trial):
@@ -1327,7 +1381,10 @@ def learning():
             model = sklearn.ensemble.RandomForestRegressor(max_depth = max_depth)
             model_name = 'RandForest_best_'
             model_name += 'max_d_'+str(max_depth)
-            fit_model_std_raw(model, model_name)
+            model_raw, model_std = fit_model_std_raw(model, model_name)
+            model_name = 'RFR'
+            save_summary(model_raw, model_std, model_name)
+
 
 
         ##################### Regression of XGBoost #####################
@@ -1362,7 +1419,7 @@ def learning():
             model_name += 'm_d_'+str(max_depth)
             model_name += 'n_es_'+str(n_estimators)
 
-            fit_model_std_raw(model, model_name)
+            model_raw, model_std = fit_model_std_raw(model, model_name)
 
 
 
@@ -1422,17 +1479,34 @@ def learning():
             model_name += '_rate_'+str(np.round(np.log(learning_rate),1))
             model_name += '_dep_'+str(max_depth)
             model_name += '_n_es_'+str(n_estimators)
-            fit_model_std_raw(model, model_name)
+            model_raw, model_std = fit_model_std_raw(model, model_name)
+            model_name = 'XGB'
+            save_summary(model_raw, model_std, model_name)
 
-        allmodel_r2_score_list = [
-                                    [LinearRegression_model_name, LinearRegression_model_name],
-                                    [Multi_SGD_model_name, Multi_SGD_model]
-                                 ]
-        allmodel_r2_score_df = pd.DataFrame()
 
         ################# to csv ##############################
-        allmodel_results_raw_df.to_csv(os.path.join(parent_path, 'results', theme_name, 'comparison of methods_raw.csv'))
-        allmodel_results_std_df.to_csv(os.path.join(parent_path, 'results', theme_name, 'comparison of methods_std.csv'))
+        allmodel_results_raw_df.to_csv(os.path.join(parent_path, 'results', theme_name, 'comparison of all_methods_raw.csv'), index=False)
+        allmodel_results_std_df.to_csv(os.path.join(parent_path, 'results', theme_name, 'comparison of all_methods_std.csv'), index=False)
+
+        summary_results_raw_df.to_csv(os.path.join(parent_path, 'results', theme_name, 'summary of methods_raw.csv'), index=False)
+        summary_results_std_df.to_csv(os.path.join(parent_path, 'results', theme_name, 'summary of methods_std.csv'), index=False)
+
+        plt.figure()
+        #https://own-search-and-study.xyz/2016/08/03/pandas%E3%81%AEplot%E3%81%AE%E5%85%A8%E5%BC%95%E6%95%B0%E3%82%92%E4%BD%BF%E3%81%84%E3%81%93%E3%81%AA%E3%81%99/
+        summary_results_std_df.plot(kind='bar', x='model_name',rot=70, figsize=(12,12), fontsize=18)
+        plt.savefig(parent_path / 'results' /  theme_name / 'summrry_of_methods.png', dpi = 240)
+
+        Image.MAX_IMAGE_PIXELS = None
+        img5 = Image.open(parent_path / 'results' / theme_name / 'summrry_of_methods.png')
+        img5_resize = img5.resize((photo_size, photo_size), Image.LANCZOS)
+        img5_resize.save(parent_path / 'results' / theme_name / 'summrry_of_methods_resized.png')
+
+        global image_method
+        image_open = Image.open(parent_path / 'results' / theme_name / 'summrry_of_methods_resized.png')
+        image_method = ImageTk.PhotoImage(image_open, master=frame2)
+
+        canvas_method.create_image(int(photo_size/2),int(photo_size/2), image=image_method)
+
 
         if t_bayesian_val.get().isnumeric == True:
             target_std_value = list_sc_model[out_n].transform(t_bayesian_val.get())
@@ -1445,7 +1519,7 @@ def learning():
         optimize_type = var_bayesian.get()
         print(optimize_dic[optimize_type])
 
-        allmodel_bayesian_opt_df.to_csv(os.path.join(parent_path, 'results', theme_name, 'bayesian_opt_' +str(optimize_dic[optimize_type])+  '.csv'))
+        allmodel_bayesian_opt_df.to_csv(os.path.join(parent_path, 'results', theme_name, 'bayesian_opt_' +str(optimize_dic[optimize_type])+  '.csv'), index=False)
         #######################################################
 
         print('finish sklearn')
@@ -1710,8 +1784,8 @@ def learning():
             save_regression(model_raw, model_std, model_name)
 
 
-        allmodel_results_raw_df.to_csv(os.path.join(parent_path, 'results', theme_name, 'comparison of methods_raw.csv'))
-        allmodel_results_std_df.to_csv(os.path.join(parent_path, 'results', theme_name, 'comparison of methods_std.csv'))
+        allmodel_results_raw_df.to_csv(os.path.join(parent_path, 'results', theme_name, 'comparison of methods_raw.csv'), index=False)
+        allmodel_results_std_df.to_csv(os.path.join(parent_path, 'results', theme_name, 'comparison of methods_std.csv'), index=False)
 
 
 # settting
@@ -1817,7 +1891,7 @@ button_learning     = ttk.Button(frame1, text='訓練開始',
 
 frame2 = tkinter.Toplevel()
 frame2.title('graph')
-frame2.geometry('800x800')
+frame2.geometry('1200x800')
 frame2.grid()
 photo_size = 400
 
@@ -1870,6 +1944,18 @@ else:
     canvas_pairplot.create_image(int(photo_size/2),int(photo_size/2), image=image_pairplot)
     canvas_pairplot.grid(row=2, column = 2, sticky= W)
 
+
+canvas_method = tkinter.Canvas(frame2, width = photo_size, height = photo_size)
+try:
+    image_tmp_open = Image.open('logo\logo5.png')
+except FileNotFoundError:
+    print('logo5.png was not found')
+else:
+    global image_method
+    image_method = ImageTk.PhotoImage(image_tmp_open, master=frame2)
+    #values is center position
+    canvas_method.create_image(int(photo_size/2),int(photo_size/2), image=image_method)
+    canvas_method.grid(row=1, column = 3, sticky= W)
 
 
 
