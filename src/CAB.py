@@ -117,6 +117,11 @@ def chk_mkdir(paths):
     return
 
 def learning():
+    if Booleanvar_bayesian_opt.get() == True and t_output_clm_num != 1:
+        from tkinter import messagebox
+        messagebox.showwarning('Warning', 'ベイズ最適化は目的関数が１つでのみ有効です')
+        return
+
     # cav & theme
     csv_path = t_csv_filepath.get()
 
@@ -800,10 +805,10 @@ def learning():
         test_model_raw_rmse         = np.sqrt(test_model_raw_mse)
 
         results_raw_df      = pd.DataFrame([model_name, train_model_raw_mse, train_model_raw_rmse, test_model_raw_mse, test_model_raw_rmse, train_model_raw_score, test_model_raw_score]).T
-        results_std_df      = pd.DataFrame([model_name, train_model_std_mse,  test_model_std_mse]).T
+        results_std_df      = pd.DataFrame([model_name, train_model_std_mse, train_model_std_rmse, test_model_std_mse, test_model_std_rmse, train_model_std_score, test_model_std_score]).T
 
         results_raw_df.columns = columns_results
-        results_std_df.columns = ['model_name', 'train_model_std_mse',  'test_model_std_mse']
+        results_std_df.columns = columns_results
 
         summary_results_raw_df = pd.concat([summary_results_raw_df, results_raw_df])
         summary_results_std_df = pd.concat([summary_results_std_df, results_std_df])
@@ -1491,21 +1496,44 @@ def learning():
         summary_results_raw_df.to_csv(os.path.join(parent_path, 'results', theme_name, 'summary of methods_raw.csv'), index=False)
         summary_results_std_df.to_csv(os.path.join(parent_path, 'results', theme_name, 'summary of methods_std.csv'), index=False)
 
+        # MSE
         plt.figure()
         #https://own-search-and-study.xyz/2016/08/03/pandas%E3%81%AEplot%E3%81%AE%E5%85%A8%E5%BC%95%E6%95%B0%E3%82%92%E4%BD%BF%E3%81%84%E3%81%93%E3%81%AA%E3%81%99/
-        summary_results_std_df.plot(kind='bar', x='model_name',rot=70, figsize=(12,12), fontsize=18)
-        plt.savefig(parent_path / 'results' /  theme_name / 'summrry_of_methods.png', dpi = 240)
+        median_mse_train = summary_results_std_df['train_model_mse'] .median()
+        median_mse_test =  summary_results_std_df['test_model_mse'] .median()
+        mse_max_axis = np.round(max(median_mse_train, median_mse_test) * 2 , 2)
+        summary_results_std_df.plot(kind='bar', x='model_name', y =['train_model_mse', 'test_model_mse'], rot=70, figsize=(12,12), fontsize=18,yticks=[0,mse_max_axis/2, mse_max_axis])
+        plt.savefig(parent_path / 'results' /  theme_name / 'summary_of_mse.png', dpi = 240)
 
         Image.MAX_IMAGE_PIXELS = None
-        img5 = Image.open(parent_path / 'results' / theme_name / 'summrry_of_methods.png')
+        img5 = Image.open(parent_path / 'results' / theme_name / 'summary_of_mse.png')
         img5_resize = img5.resize((photo_size, photo_size), Image.LANCZOS)
-        img5_resize.save(parent_path / 'results' / theme_name / 'summrry_of_methods_resized.png')
+        img5_resize.save(parent_path / 'results' / theme_name / 'summary_of_mse_resized.png')
 
-        global image_method
-        image_open = Image.open(parent_path / 'results' / theme_name / 'summrry_of_methods_resized.png')
-        image_method = ImageTk.PhotoImage(image_open, master=frame2)
+        global image_mse
+        image_open = Image.open(parent_path / 'results' / theme_name / 'summary_of_mse_resized.png')
+        image_mse = ImageTk.PhotoImage(image_open, master=frame2)
 
-        canvas_method.create_image(int(photo_size/2),int(photo_size/2), image=image_method)
+        canvas_mse.create_image(int(photo_size/2),int(photo_size/2), image=image_mse)
+        plt.close()
+
+        # R2 score
+        plt.figure()
+        #https://own-search-and-study.xyz/2016/08/03/pandas%E3%81%AEplot%E3%81%AE%E5%85%A8%E5%BC%95%E6%95%B0%E3%82%92%E4%BD%BF%E3%81%84%E3%81%93%E3%81%AA%E3%81%99/
+        summary_results_std_df.plot(kind='bar', x='model_name', y =['train_model_score', 'test_model_score'], rot=70, figsize=(12,12), fontsize=18, yticks=[0,0.5,1.0])
+        plt.savefig(parent_path / 'results' /  theme_name / 'summary_of_score.png', dpi = 240)
+
+        Image.MAX_IMAGE_PIXELS = None
+        img6 = Image.open(parent_path / 'results' / theme_name / 'summary_of_score.png')
+        img6_resize = img6.resize((photo_size, photo_size), Image.LANCZOS)
+        img6_resize.save(parent_path / 'results' / theme_name / 'summary_of_score_resized.png')
+
+        global image_score
+        image_open = Image.open(parent_path / 'results' / theme_name / 'summary_of_score_resized.png')
+        image_score = ImageTk.PhotoImage(image_open, master=frame2)
+
+        canvas_score.create_image(int(photo_size/2),int(photo_size/2), image=image_score)
+
 
 
         if t_bayesian_val.get().isnumeric == True:
@@ -1629,19 +1657,6 @@ def learning():
 
             return model
 
-        def get_model2(layers_depth, units_size, keep_prob, patience):
-            model = Sequential()
-            model.add(Dense(units_size, input_dim = input_num, activation = 'relu'))
-
-            for i in range(layers_depth-2):
-                model.add(Dense(units_size, activation = 'relu'))
-                model.add(BatchNormalization(mode=0))
-
-            model.add(Dense(output_num))
-
-            model.compile(loss = 'mean_squared_error', optimizer = 'adam')
-
-            return model
         # refer from https://github.com/completelyAbsorbed/ML/blob/0ca17d25bae327fe9be8e3639426dc86f3555a5a/Practice/housing/housing_regression_NN.py
 
 
@@ -1700,27 +1715,6 @@ def learning():
                         'patience': patience
                         }
 
-            '''
-            model = Sequential()
-            #model.add(InputLayer(input_shape=(input_num,)))
-            # 1Layer
-            model.add(Dense(units_size, input_shape=(input_num,)))
-            #model.add(Dense(units_size, input_shape=(3,)))
-            model.add(Activation('relu'))
-            model.add(BatchNormalization(mode=0))
-
-            for i in range(layers_depth-2):
-                model.add(Dense(units_size))
-                model.add(Activation('relu'))
-                model.add(BatchNormalization(mode=0))
-            #model.add(Dense(1))
-            model.add(Dense(output_num))
-
-
-            model.compile(loss='mse',
-                    optimizer=keras.optimizers.Adam(),
-                    metrics=['accuracy'])
-            '''
 
             model = get_model(**dl_params)
             epochs=50
@@ -1782,6 +1776,9 @@ def learning():
 
 
             save_regression(model_raw, model_std, model_name)
+            model_name = 'DL'
+            save_summary(model_raw, model_std, model_name)
+
 
 
         allmodel_results_raw_df.to_csv(os.path.join(parent_path, 'results', theme_name, 'comparison of methods_raw.csv'), index=False)
@@ -1866,7 +1863,7 @@ var_bayesian = tkinter.IntVar()
 var_bayesian.set(0)
 
 Booleanvar_sklearn.set(True)
-Booleanvar_optuna_sklearn.set(True)
+Booleanvar_optuna_sklearn.set(False)
 Booleanvar_deeplearning.set(False)
 
 Checkbutton_sklearn = tkinter.Checkbutton(frame1, text = '機械学習', variable = Booleanvar_sklearn)
@@ -1945,18 +1942,30 @@ else:
     canvas_pairplot.grid(row=2, column = 2, sticky= W)
 
 
-canvas_method = tkinter.Canvas(frame2, width = photo_size, height = photo_size)
+canvas_mse = tkinter.Canvas(frame2, width = photo_size, height = photo_size)
 try:
     image_tmp_open = Image.open('logo\logo5.png')
 except FileNotFoundError:
     print('logo5.png was not found')
 else:
-    global image_method
-    image_method = ImageTk.PhotoImage(image_tmp_open, master=frame2)
+    global image_mse
+    image_mse = ImageTk.PhotoImage(image_tmp_open, master=frame2)
     #values is center position
-    canvas_method.create_image(int(photo_size/2),int(photo_size/2), image=image_method)
-    canvas_method.grid(row=1, column = 3, sticky= W)
+    canvas_mse.create_image(int(photo_size/2),int(photo_size/2), image=image_mse)
+    canvas_mse.grid(row=1, column = 3, sticky= W)
 
+
+canvas_score = tkinter.Canvas(frame2, width = photo_size, height = photo_size)
+try:
+    image_tmp_open = Image.open('logo\logo6.png')
+except FileNotFoundError:
+    print('logo6.png was not found')
+else:
+    global image_score
+    image_score = ImageTk.PhotoImage(image_tmp_open, master=frame2)
+    #values is center position
+    canvas_score.create_image(int(photo_size/2),int(photo_size/2), image=image_score)
+    canvas_score.grid(row=2, column = 3, sticky= W)
 
 
 
