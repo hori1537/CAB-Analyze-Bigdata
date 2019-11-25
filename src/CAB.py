@@ -1,12 +1,9 @@
 
-# programmed by YUKI Horie, Glass Research Center 'yuki.horie@'
-# do not use JAPANESE!\
-# (c) 2019 Horie Yuki Central Glass
+# (c) 2019 Horie Yuki
 
 from __future__ import print_function
-from pathlib import Path
-
 import os
+
 import sys
 import random
 import math
@@ -14,6 +11,8 @@ import time
 import copy
 
 import itertools
+from pathlib import Path
+from inspect import currentframe
 
 import numpy as np
 import numpy
@@ -24,7 +23,6 @@ import seaborn as sns
 import pydotplus
 
 from PIL import ImageTk, Image
-from PIL import Image
 
 import tkinter
 import tkinter.filedialog
@@ -49,7 +47,6 @@ import GPyOpt
 
 import category_encoders
 
-
 try:
     import dtreeviz.trees
     import dtreeviz.shadow
@@ -65,7 +62,6 @@ import optuna
 
 # #chkprint
 # refer from https://qiita.com/AnchorBlues/items/f7725ba87ce349cb0382
-from inspect import currentframe
 def chkprint(*args):
     names = {id(v):k for k,v in currentframe().f_back.f_locals.items()}
     print(', '.join(names.get(id(arg),'???')+' = '+repr(arg) for arg in args))
@@ -81,16 +77,10 @@ random.seed(1)
 
 current_path = Path.cwd()
 program_path = Path(__file__).parent.resolve()
-
 parent_path = program_path.parent.resolve()
-chkprint(parent_path)
 
 data_path           = parent_path / 'data'
 data_processed_path = data_path / 'processed'
-
-# Graphviz path
-#http://spacegomi.hatenablog.com/entry/2018/01/26/170721
-
 graphviz_path = program_path / 'release' / 'bin' / 'dot.exe'
 graphviz_path =graphviz_path.resolve()
 chkprint(program_path)
@@ -108,13 +98,6 @@ allmodel_results_std_df = pd.DataFrame(columns = columns_results)
 
 summary_results_raw_df = pd.DataFrame(columns = columns_results)
 summary_results_std_df = pd.DataFrame(columns = ['model_name', 'train_model_std_mse',  'test_model_std_mse'])
-
-# make the folder for saving the results
-def chk_mkdir(paths):
-    for path_name in paths:
-        if os.path.exists(path_name) == False:
-            os.mkdir(path_name)
-    return
 
 def learning():
     if Booleanvar_bayesian_opt.get() == True and t_output_clm_num != 1:
@@ -138,23 +121,17 @@ def learning():
     is_optuna_deeplearning = Booleanvar_optuna_deeplearning.get()
 
     # make the save folder
-    print('chdir', os.path.dirname(csv_path))
+    print('change directory to : ', os.path.dirname(csv_path))
     os.chdir(os.path.dirname(csv_path))
 
     # make the folder for saving the results
-    def chk_mkdir(paths):
-        for path_name in paths:
-            if os.path.exists(path_name) == False:
-                os.mkdir(path_name)
-        return
 
-    paths = [ parent_path / 'results' ,
-              parent_path / 'results' / theme_name,
-              parent_path / 'results' / theme_name / 'tree',
+    paths = [ parent_path / 'results' / theme_name / 'tree',
               parent_path / 'results' / theme_name / 'importance',
               parent_path / 'results' / theme_name / 'parameter_raw',
               parent_path / 'results' / theme_name / 'parameter_std',
               parent_path / 'results' / theme_name / 'predict_raw',
+              parent_path / 'results' / theme_name / 'predict_sr_contour',
               parent_path / 'results' / theme_name / 'predict_stdtoraw',
               parent_path / 'results' / theme_name / 'traintest_raw',
               parent_path / 'results' / theme_name / 'traintest_std',
@@ -163,14 +140,14 @@ def learning():
               parent_path / 'results' / theme_name / 'bayesian_opt',
               parent_path / 'results' / theme_name / 'DL-models']
 
-    chk_mkdir(paths)
+    for path_name in paths:
+        os.makedirs(path_name, exist_ok=True)
 
     # csv information
     info_num    = int(t_info_clm_num.get())     # information columns in csv file
     input_num   = int(t_input_clm_num.get())    # input data  columns in csv file
     output_num  = int(t_output_clm_num.get())   # output data columns in csv file
 
-    #processed_data_df = pd.read_csv(open(str(address_) + str(CSV_NAME) ,encoding="utf-8_sig"))
     try:
         raw_data_df = pd.read_csv(open(csv_path ,encoding="utf-8_sig"))
         print('utf-8で読み込みました')
@@ -185,17 +162,13 @@ def learning():
     raw_data_input_col   = info_num + input_num
     raw_data_output_col  = info_num + input_num + output_num
 
-    info_raw_df         = raw_data_df.iloc[:, 0         : raw_data_info_col]
+    info_raw_df         = raw_data_df.iloc[:, 0 : raw_data_info_col]
     info_processed_df   = info_raw_df
-
     in_output_raw_df    = raw_data_df.iloc[:, raw_data_info_col  : raw_data_output_col]
 
     # one-hot vectorize
     category_data_df = in_output_raw_df.select_dtypes(exclude=['number', 'bool'])
     category_list = list(category_data_df.columns)
-    print(category_list)
-    print(type(category_list))
-
     ce_onehot   = category_encoders.OneHotEncoder(cols = category_list, handle_unknown = 'impute')
     processed_data_df = ce_onehot.fit_transform(in_output_raw_df)
 
@@ -203,9 +176,6 @@ def learning():
 
     input_num   += input_num_plus
     list_num    = [input_num, output_num]
-
-    print('input_num', input_num)
-    print('output_num', output_num)
 
     info_col    = info_num
     input_col   = info_num + input_num
@@ -244,11 +214,14 @@ def learning():
 
     input_raw_max   = input_raw_des.loc['max']
     input_raw_min   = input_raw_des.loc['min']
+    input_raw_mean   = input_raw_des.loc['mean']
     output_raw_max  = output_raw_des.loc['max']
     output_raw_min  = output_raw_des.loc['min']
+    output_raw_mean  = output_raw_des.loc['mean']
 
     list_raw_max    = [input_raw_max, output_raw_max]
     list_raw_min    = [input_raw_min, output_raw_min]
+    list_raw_mean    = [input_raw_mean, output_raw_mean]
 
     input_std_des   = input_std_df.describe()
     output_std_des  = output_std_df.describe()
@@ -287,6 +260,7 @@ def learning():
 
     # split columns to info, input, output
     [train_input_raw, train_output_raw] = np.hsplit(train_raw_np, [input_num])
+
     list_train_raw                      = [train_input_raw, train_output_raw]
     [test_input_raw,  test_output_raw]  = np.hsplit(test_raw_np,  [input_num])
     list_test_raw                       = [test_input_raw, test_output_raw]
@@ -322,7 +296,7 @@ def learning():
     list_test_std_df                    = [test_input_std_df  , test_output_std_df ]
     list_val_std_df                     = [val_input_std_df  , val_output_std_df ]
 
-    print('')
+    print('The number of train-test-validation')
     print('train : ',len(train_input_std_df))
     print('test : ',len(test_input_std_df))
     print('val : ',len(val_input_std_df))
@@ -331,8 +305,7 @@ def learning():
     plt.figure(figsize=(5,5))
     sns.heatmap(in_output_raw_df.corr(), cmap = 'Oranges',annot=False, linewidths = .5)
     plt.savefig(parent_path / 'results' /  theme_name / 'correlation_coefficient.png', dpi = 240)
-    #plt.close()
-
+    plt.close()
 
     plt.figure(figsize=(5,5))
     sns.pairplot(in_output_raw_df)
@@ -390,10 +363,6 @@ def learning():
 
         return
 
-    #########   search by hyperopt ###############
-    #import hyperopt
-
-    #########   save the tree to pdf ###############
 
     #### dtree viz #####
     '''
@@ -602,13 +571,11 @@ def learning():
             model_parameter_std_df.to_csv(parent_path / 'results' / theme_name / 'parameter_std' / (str(model_name) + '_parameter.csv'), index=False)
 
         if hasattr(model_raw, 'tree_') == True:
-            print('tree')
             save_tree_topdf(model_raw, model_name)
             pass
 
 
         if hasattr(model_raw, 'feature_importances_') == True:
-            print('feature_importances')
             importances = pd.Series(model_raw.feature_importances_)
             importances = np.array(importances)
 
@@ -737,6 +704,84 @@ def learning():
         return model_raw, model_std
 
 
+    def save_contour(model_raw, model_name):
+        combinations_list = list(itertools.combinations(range(input_num),2))
+
+        n_contour_graph = 4
+        important_list = [i for i in important_index if i <= n_contour_graph]
+        combinations_list2 = list(itertools.combinations(important_list,2))
+
+        print('combinations_list')
+        print(combinations_list)
+        print('combinations_list2')
+        print(combinations_list2)
+
+        for combi_ in combinations_list2:
+            print(combi_)
+            grid_num = 3
+            x = np.linspace(input_raw_min[combi_[0]], input_raw_max[combi_[0]], grid_num)
+            y = np.linspace(input_raw_min[combi_[1]], input_raw_max[combi_[1]], grid_num)
+
+            X, Y = np.meshgrid(x, y)
+            print('X')
+            print(X)
+            print('Y')
+            print(Y)
+
+            input_Z =  np.array([input_raw_mean for i in range(grid_num * grid_num)])
+            input_Z = input_Z.reshape(-1,input_num)
+            input_Z = input_Z.tolist()
+            print('input_Z')
+            print(input_Z)
+
+            cnt_ = 0
+            for j in range(grid_num):
+                for k in range(grid_num):
+                    '''
+                    print('cnt_ ' , cnt_)
+                    print('combi_[0] ' , combi_[0])
+                    print('combi_[1] ' , combi_[1])
+                    print('j' , j)
+                    print('k' , k)
+                    print('X[j][k]' , X[j][k])
+                    '''
+                    input_Z[cnt_][combi_[0]] = X[j][k]
+                    input_Z[cnt_][combi_[1]] = Y[j][k]
+                    cnt_ +=1
+
+            print(cnt_)
+
+            print('input_Z')
+            print(input_Z)
+
+            Z_all = (model_std.predict(input_Z))
+            print(Z_all)
+
+
+            for i in range(output_num):
+                Z_all = np.array(Z_all).reshape(grid_num * grid_num, -1)
+
+                Z = [k[i] for k in Z_all]
+                Z = np.array(Z).reshape(grid_num,-1).tolist()
+
+                plt.figure()
+
+                cont = plt.contour(X,Y,Z,colors=['r', 'g', 'b'])
+                cont.clabel(fmt='%1.1f', fontsize=14)
+
+                plt.xlabel('X', fontsize=14)
+                plt.ylabel('Y', fontsize=14)
+
+                plt.pcolormesh(X,Y,Z, cmap='cool') #カラー等高線図
+                pp=plt.colorbar (orientation="vertical") # カラーバーの表示
+                pp.set_label("Label",  fontsize=24)
+                #plt.show()
+                X_name=input_feature_names[combi_[0]]
+                Y_name=input_feature_names[combi_[1]]
+                Z_name=output_feature_names[i]
+
+                plt.savefig(parent_path / 'results' / theme_name / 'predict_sr_contour' / (str(X_name) + str(Y_name) + str(Z_name) + '.png'))
+                plt.close()
 
 
     def save_summary(model_raw, model_std, model_name):
@@ -857,8 +902,14 @@ def learning():
 
         model.fit(list_train_raw[in_n], list_train_raw[out_n])
 
-        importances         = np.array(model.feature_importances_)
-        label       = list_feature_names[in_n]
+        importances     = np.array(model.feature_importances_)
+        label           = list_feature_names[in_n]
+        #important_rank = pd.DataFrame(importances).rank(method="first", ascending=False)
+        #print('important_rank', important_rank)
+
+        important_index = np.array(-importances).argsort()
+
+        print('important_index', important_index)
 
         pred_train = model.predict(list_train_raw[in_n])
         pred_test = model.predict(list_test_raw[in_n])
@@ -957,8 +1008,8 @@ def learning():
             gridsearch_input_std_df = pd.DataFrame(gridsearch_input_std, columns = list_feature_names[in_n])
 
 
-        n_trials= 7 + Booleanvar_optuna_sklearn.get()*77
-
+        n_trials= 2 + Booleanvar_optuna_sklearn.get()*77
+        '''
         ##################### Linear Regression #####################
 
         model = linear_model.LinearRegression()
@@ -1390,7 +1441,7 @@ def learning():
             model_name = 'RFR'
             save_summary(model_raw, model_std, model_name)
 
-
+        '''
 
         ##################### Regression of XGBoost #####################
         # refer from https://github.com/FelixNeutatz/ED2/blob/23170b05c7c800e2d2e2cf80d62703ee540d2bcb/src/model/ml/CellPredict.py
@@ -1488,6 +1539,8 @@ def learning():
             model_name = 'XGB'
             save_summary(model_raw, model_std, model_name)
 
+            save_contour(model_std, model_name)
+
 
         ################# to csv ##############################
         allmodel_results_raw_df.to_csv(os.path.join(parent_path, 'results', theme_name, 'comparison of all_methods_raw.csv'), index=False)
@@ -1496,6 +1549,7 @@ def learning():
         summary_results_raw_df.to_csv(os.path.join(parent_path, 'results', theme_name, 'summary of methods_raw.csv'), index=False)
         summary_results_std_df.to_csv(os.path.join(parent_path, 'results', theme_name, 'summary of methods_std.csv'), index=False)
 
+        ################# to photo ##############################
         # MSE
         plt.figure()
         #https://own-search-and-study.xyz/2016/08/03/pandas%E3%81%AEplot%E3%81%AE%E5%85%A8%E5%BC%95%E6%95%B0%E3%82%92%E4%BD%BF%E3%81%84%E3%81%93%E3%81%AA%E3%81%99/
@@ -1533,8 +1587,6 @@ def learning():
         image_score = ImageTk.PhotoImage(image_open, master=frame2)
 
         canvas_score.create_image(int(photo_size/2),int(photo_size/2), image=image_score)
-
-
 
         if t_bayesian_val.get().isnumeric == True:
             target_std_value = list_sc_model[out_n].transform(t_bayesian_val.get())
@@ -1727,7 +1779,7 @@ def learning():
 
             return mean_squared_error(list_val_std[out_n], y_pred)
 
-        n_trials= 3 + is_optuna_deeplearning*33
+        n_trials= 1 + is_optuna_deeplearning*33
 
         study = optuna.create_study()
         study.optimize(objective_dl, n_trials=n_trials)
