@@ -305,7 +305,7 @@ def learning():
     plt.figure(figsize=(5,5))
     sns.heatmap(in_output_raw_df.corr(), cmap = 'Oranges',annot=False, linewidths = .5)
     plt.savefig(parent_path / 'results' /  theme_name / 'correlation_coefficient.png', dpi = 240)
-    plt.close()
+    #plt.close()
 
     plt.figure(figsize=(5,5))
     sns.pairplot(in_output_raw_df)
@@ -705,83 +705,97 @@ def learning():
 
 
     def save_contour(model_raw, model_name):
-        combinations_list = list(itertools.combinations(range(input_num),2))
+        combinations_list_all = list(itertools.combinations(range(input_num),2))
 
-        n_contour_graph = 4
-        important_list = [i for i in important_index if i <= n_contour_graph]
-        combinations_list2 = list(itertools.combinations(important_list,2))
+        rank_tograph = 4
+        important_list = [i for i in important_index if i < rank_tograph]
+        combinations_list_selected = list(itertools.combinations(important_list,2))
 
-        print('combinations_list')
-        print(combinations_list)
-        print('combinations_list2')
-        print(combinations_list2)
+        print('importances')
+        print(importances)
+        print('combinations_list_selected')
+        print(combinations_list_selected)
 
-        for combi_ in combinations_list2:
-            print(combi_)
-            grid_num = 3
-            x = np.linspace(input_raw_min[combi_[0]], input_raw_max[combi_[0]], grid_num)
-            y = np.linspace(input_raw_min[combi_[1]], input_raw_max[combi_[1]], grid_num)
+        cnt_combi = 0
 
-            X, Y = np.meshgrid(x, y)
-            print('X')
-            print(X)
-            print('Y')
-            print(Y)
+        for combi_ in combinations_list_selected:
+            for others_inputtype in ['min', 'mean', 'max']:
+                if others_inputtype == 'min':
+                    input_others = input_raw_min
+                elif others_inputtype == 'mean':
+                    input_others = input_raw_mean
+                elif others_inputtype == 'max':
+                    input_others = input_raw_max
+                    
+                grid_num = 9
 
-            input_Z =  np.array([input_raw_mean for i in range(grid_num * grid_num)])
-            input_Z = input_Z.reshape(-1,input_num)
-            input_Z = input_Z.tolist()
-            print('input_Z')
-            print(input_Z)
+                x = np.linspace(input_raw_min[combi_[0]], input_raw_max[combi_[0]], grid_num)
+                y = np.linspace(input_raw_min[combi_[1]], input_raw_max[combi_[1]], grid_num)
+                X, Y = np.meshgrid(x, y)
 
-            cnt_ = 0
-            for j in range(grid_num):
-                for k in range(grid_num):
-                    '''
-                    print('cnt_ ' , cnt_)
-                    print('combi_[0] ' , combi_[0])
-                    print('combi_[1] ' , combi_[1])
-                    print('j' , j)
-                    print('k' , k)
-                    print('X[j][k]' , X[j][k])
-                    '''
-                    input_Z[cnt_][combi_[0]] = X[j][k]
-                    input_Z[cnt_][combi_[1]] = Y[j][k]
-                    cnt_ +=1
+                input_Z_ =  np.array([input_others for i in range(grid_num * grid_num)])
+                input_Z  = copy.deepcopy(input_Z_)
+                input_Z  = input_Z.reshape(-1,input_num).tolist()
 
-            print(cnt_)
+                cnt_ = 0
+                for j in range(grid_num):
+                    for k in range(grid_num):
+                        input_Z[cnt_][combi_[0]] = X[j][k]
+                        input_Z[cnt_][combi_[1]] = Y[j][k]
+                        cnt_ +=1
 
-            print('input_Z')
-            print(input_Z)
+                Z_all = (model_raw.predict(input_Z))
 
-            Z_all = (model_std.predict(input_Z))
-            print(Z_all)
+                for i in range(output_num):
+                    Z_all = np.array(Z_all).reshape(grid_num * grid_num, -1)
+
+                    Z = [k[i] for k in Z_all]
+                    Z = np.array(Z).reshape(grid_num,-1).tolist()
+
+                    X_name=input_feature_names[combi_[0]]
+                    Y_name=input_feature_names[combi_[1]]
+                    Z_name=output_feature_names[i]
+
+                    plt_con = plt.figure()
+
+                    cont = plt.contour(X,Y,Z,colors=['r', 'g', 'b'])
+                    cont.clabel(fmt='%1.1f', fontsize=14)
+
+                    plt.xlabel(X_name, fontsize=14)
+                    plt.ylabel(Y_name, fontsize=14)
+
+                    plt.pcolormesh(X,Y,Z, cmap='cool') #カラー等高線図
+                    pp=plt.colorbar (orientation="vertical") # カラーバーの表示
+                    pp.set_label(Z_name,  fontsize=24)
+                    #plt.show()
+
+                    plt.savefig(parent_path / 'results' / theme_name / 'predict_sr_contour' / 
+                                (str(cnt_combi) + str(X_name) +'_' +  str(Y_name) +'_' + str(Z_name)  + '_'+ others_inputtype +  '.png'))
+
+                    if cnt_combi == 0 and others_inputtype == 'mean':
+                        # contour
+
+                        Image.MAX_IMAGE_PIXELS = None
+                        img6 = Image.open(parent_path / 'results' / theme_name / 'predict_sr_contour' / 
+                                (str(cnt_combi) + str(X_name) +'_' +  str(Y_name) +'_' + str(Z_name)  + '_'+ others_inputtype +  '.png'))
+
+                        img6_resize = img6.resize((photo_size, photo_size), Image.LANCZOS)
+                        img6_resize.save(parent_path / 'results' / theme_name / 'predict_sr_contour' / 
+                                (str(cnt_combi) + str(X_name) +'_' +  str(Y_name) +'_' + str(Z_name)  + '_'+ others_inputtype +  '_resized.png'))
 
 
-            for i in range(output_num):
-                Z_all = np.array(Z_all).reshape(grid_num * grid_num, -1)
+                        global image_contour
+                        image_open = Image.open(parent_path / 'results' / theme_name / 'predict_sr_contour' / 
+                                (str(cnt_combi) + str(X_name) +'_' +  str(Y_name) +'_' + str(Z_name)  + '_'+ others_inputtype +  '_resized.png'))
+                        image_contour = ImageTk.PhotoImage(image_open, master=frame2)
 
-                Z = [k[i] for k in Z_all]
-                Z = np.array(Z).reshape(grid_num,-1).tolist()
+                        canvas_contour.create_image(int(photo_size/2),int(photo_size/2), image=image_contour)
+                        #plt.close()
 
-                plt.figure()
 
-                cont = plt.contour(X,Y,Z,colors=['r', 'g', 'b'])
-                cont.clabel(fmt='%1.1f', fontsize=14)
+                    plt.close(plt_con)
 
-                plt.xlabel('X', fontsize=14)
-                plt.ylabel('Y', fontsize=14)
-
-                plt.pcolormesh(X,Y,Z, cmap='cool') #カラー等高線図
-                pp=plt.colorbar (orientation="vertical") # カラーバーの表示
-                pp.set_label("Label",  fontsize=24)
-                #plt.show()
-                X_name=input_feature_names[combi_[0]]
-                Y_name=input_feature_names[combi_[1]]
-                Z_name=output_feature_names[i]
-
-                plt.savefig(parent_path / 'results' / theme_name / 'predict_sr_contour' / (str(X_name) + str(Y_name) + str(Z_name) + '.png'))
-                plt.close()
+            cnt_combi += 1
 
 
     def save_summary(model_raw, model_std, model_name):
@@ -1009,7 +1023,8 @@ def learning():
 
 
         n_trials= 2 + Booleanvar_optuna_sklearn.get()*77
-        '''
+        
+        
         ##################### Linear Regression #####################
 
         model = linear_model.LinearRegression()
@@ -1078,7 +1093,7 @@ def learning():
 
             model_raw, model_std = fit_model_std_raw(model, model_name)
 
-            model_name = 'SGD'
+            model_name = 'SVR'
             save_summary(model_raw, model_std, model_name)
 
 
@@ -1441,8 +1456,8 @@ def learning():
             model_name = 'RFR'
             save_summary(model_raw, model_std, model_name)
 
-        '''
-
+        
+        
         ##################### Regression of XGBoost #####################
         # refer from https://github.com/FelixNeutatz/ED2/blob/23170b05c7c800e2d2e2cf80d62703ee540d2bcb/src/model/ml/CellPredict.py
 
@@ -1457,14 +1472,14 @@ def learning():
             in itertools.product(min_child_weight, subsample, learning_rate, max_depth, n_estimators):
 
             xgb_params = {'estimator__min_child_weight': min_child_weight,
-                        'estimator__subsample': subsample,
-                        'estimator__learning_rate': learning_rate,
-                        'estimator__max_depth': max_depth,
-                        'estimator__n_estimators': n_estimators,
-                        'colsample_bytree': 0.8,
-                        'silent': 1,
-                        'seed': 0,
-                        'objective': 'reg:linear'}
+                          'estimator__subsample': subsample,
+                          'estimator__learning_rate': learning_rate,
+                          'estimator__max_depth': max_depth,
+                          'estimator__n_estimators': n_estimators,
+                          'colsample_bytree': 0.8,
+                          'silent': 1,
+                          'seed': 0,
+                          'objective': 'reg:linear'}
 
             model = MultiOutputRegressor(xgb.XGBRegressor(**xgb_params))
 
@@ -1477,10 +1492,6 @@ def learning():
 
             model_raw, model_std = fit_model_std_raw(model, model_name)
 
-
-
-
-
         def objective_xgb(trial):
 
             min_child_weight = trial.suggest_int('min_child_weight', 1 , 10)
@@ -1490,14 +1501,14 @@ def learning():
             n_estimators     = 100
 
             xgb_params = {'estimator__min_child_weight': min_child_weight,
-                        'estimator__subsample': subsample,
-                        'estimator__learning_rate': learning_rate,
-                        'estimator__max_depth': max_depth,
-                        'estimator__n_estimators': n_estimators,
-                        'colsample_bytree': 0.8,
-                        'silent': 1,
-                        'seed': 0,
-                        'objective': 'reg:linear'}
+                          'estimator__subsample': subsample,
+                          'estimator__learning_rate': learning_rate,
+                          'estimator__max_depth': max_depth,
+                          'estimator__n_estimators': n_estimators,
+                          'colsample_bytree': 0.8,
+                          'silent': 1,
+                          'seed': 0,
+                          'objective': 'reg:linear'}
 
 
             model = MultiOutputRegressor(xgb.XGBRegressor(**xgb_params))
@@ -1518,18 +1529,18 @@ def learning():
                                 )]:
 
             xgb_params = {'estimator__min_child_weight': min_child_weight,
-                        'estimator__subsample': subsample,
-                        'estimator__learning_rate': learning_rate,
-                        'estimator__max_depth': max_depth,
-                        'estimator__n_estimators': 100,
-                        'colsample_bytree': 0.8,
-                        'silent': 1,
-                        'seed': 0,
-                        'objective': 'reg:linear'}
+                          'estimator__subsample': subsample,
+                          'estimator__learning_rate': learning_rate,
+                          'estimator__max_depth': max_depth,
+                          'estimator__n_estimators': 100,
+                          'colsample_bytree': 0.8,
+                          'silent': 1,
+                          'seed': 0,
+                          'objective': 'reg:linear'}
 
             model = MultiOutputRegressor(xgb.XGBRegressor(**xgb_params))
 
-            model_name = 'MO-XGB_best'
+            model_name =  'MO-XGB_best'
             model_name += '_c_wei_'+str(min_child_weight)
             model_name += '_sam_'+str(np.round(subsample,1))
             model_name += '_rate_'+str(np.round(np.log(learning_rate),1))
@@ -1539,7 +1550,7 @@ def learning():
             model_name = 'XGB'
             save_summary(model_raw, model_std, model_name)
 
-            save_contour(model_std, model_name)
+            save_contour(model_raw, model_name)
 
 
         ################# to csv ##############################
@@ -1550,27 +1561,6 @@ def learning():
         summary_results_std_df.to_csv(os.path.join(parent_path, 'results', theme_name, 'summary of methods_std.csv'), index=False)
 
         ################# to photo ##############################
-        # MSE
-        plt.figure()
-        #https://own-search-and-study.xyz/2016/08/03/pandas%E3%81%AEplot%E3%81%AE%E5%85%A8%E5%BC%95%E6%95%B0%E3%82%92%E4%BD%BF%E3%81%84%E3%81%93%E3%81%AA%E3%81%99/
-        median_mse_train = summary_results_std_df['train_model_mse'] .median()
-        median_mse_test =  summary_results_std_df['test_model_mse'] .median()
-        mse_max_axis = np.round(max(median_mse_train, median_mse_test) * 2 , 2)
-        summary_results_std_df.plot(kind='bar', x='model_name', y =['train_model_mse', 'test_model_mse'], rot=70, figsize=(12,12), fontsize=18,yticks=[0,mse_max_axis/2, mse_max_axis])
-        plt.savefig(parent_path / 'results' /  theme_name / 'summary_of_mse.png', dpi = 240)
-
-        Image.MAX_IMAGE_PIXELS = None
-        img5 = Image.open(parent_path / 'results' / theme_name / 'summary_of_mse.png')
-        img5_resize = img5.resize((photo_size, photo_size), Image.LANCZOS)
-        img5_resize.save(parent_path / 'results' / theme_name / 'summary_of_mse_resized.png')
-
-        global image_mse
-        image_open = Image.open(parent_path / 'results' / theme_name / 'summary_of_mse_resized.png')
-        image_mse = ImageTk.PhotoImage(image_open, master=frame2)
-
-        canvas_mse.create_image(int(photo_size/2),int(photo_size/2), image=image_mse)
-        plt.close()
-
         # R2 score
         plt.figure()
         #https://own-search-and-study.xyz/2016/08/03/pandas%E3%81%AEplot%E3%81%AE%E5%85%A8%E5%BC%95%E6%95%B0%E3%82%92%E4%BD%BF%E3%81%84%E3%81%93%E3%81%AA%E3%81%99/
@@ -1602,7 +1592,7 @@ def learning():
         allmodel_bayesian_opt_df.to_csv(os.path.join(parent_path, 'results', theme_name, 'bayesian_opt_' +str(optimize_dic[optimize_type])+  '.csv'), index=False)
         #######################################################
 
-        print('finish sklearn')
+        print('Sklearn finished!')
 
         '''
         ################# importances feature by XGBOOST ######
@@ -1662,7 +1652,9 @@ def learning():
 
     ##################### Deep Learning #####################
     if is_dl == False:
-        print('do not start deeplearning')
+        print('You didn\'t choose deeplearning')
+        print('Finished!')
+        
     elif is_dl == True :
         print('start deeplearning')
 
@@ -1940,7 +1932,7 @@ button_learning     = ttk.Button(frame1, text='訓練開始',
 
 frame2 = tkinter.Toplevel()
 frame2.title('graph')
-frame2.geometry('1200x800')
+frame2.geometry('1300x900')
 frame2.grid()
 photo_size = 400
 
@@ -1994,22 +1986,9 @@ else:
     canvas_pairplot.grid(row=2, column = 2, sticky= W)
 
 
-canvas_mse = tkinter.Canvas(frame2, width = photo_size, height = photo_size)
-try:
-    image_tmp_open = Image.open('logo\logo5.png')
-except FileNotFoundError:
-    print('logo5.png was not found')
-else:
-    global image_mse
-    image_mse = ImageTk.PhotoImage(image_tmp_open, master=frame2)
-    #values is center position
-    canvas_mse.create_image(int(photo_size/2),int(photo_size/2), image=image_mse)
-    canvas_mse.grid(row=1, column = 3, sticky= W)
-
-
 canvas_score = tkinter.Canvas(frame2, width = photo_size, height = photo_size)
 try:
-    image_tmp_open = Image.open('logo\logo6.png')
+    image_tmp_open = Image.open('logo\logo5.png')
 except FileNotFoundError:
     print('logo6.png was not found')
 else:
@@ -2017,7 +1996,22 @@ else:
     image_score = ImageTk.PhotoImage(image_tmp_open, master=frame2)
     #values is center position
     canvas_score.create_image(int(photo_size/2),int(photo_size/2), image=image_score)
-    canvas_score.grid(row=2, column = 3, sticky= W)
+    canvas_score.grid(row=1, column = 3, sticky= W)
+
+
+canvas_contour = tkinter.Canvas(frame2, width = photo_size, height = photo_size)
+try:
+    image_tmp_open = Image.open('logo\logo6.png')
+except FileNotFoundError:
+    print('logo6.png was not found')
+else:
+    global image_contour
+    image_contour = ImageTk.PhotoImage(image_tmp_open, master=frame2)
+    #values is center position
+    canvas_contour.create_image(int(photo_size/2),int(photo_size/2), image=image_contour)
+    canvas_contour.grid(row=2, column = 3, sticky= W)
+
+
 
 
 
