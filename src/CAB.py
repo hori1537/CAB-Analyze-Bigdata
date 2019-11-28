@@ -237,13 +237,13 @@ def learning():
     # split train data and test data from the in_output_std_df
     np.random.seed(10)
     random.seed(10)
-    train_std_df, test_std_df  = train_test_split(in_output_std_df, test_size=0.05)
-    train_std_df, val_std_df   = train_test_split(train_std_df, test_size=0.05)
+    train_std_df, test_std_df  = train_test_split(in_output_std_df, test_size=0.1)
+    train_std_df, val_std_df   = train_test_split(train_std_df, test_size=0.1)
 
     np.random.seed(10)
     random.seed(10)
-    train_raw_df, test_raw_df  = train_test_split(in_output_processed_df, test_size=0.05)
-    train_raw_df, val_raw_df   = train_test_split(train_raw_df, test_size=0.05)
+    train_raw_df, test_raw_df  = train_test_split(in_output_processed_df, test_size=0.1)
+    train_raw_df, val_raw_df   = train_test_split(train_raw_df, test_size=0.1)
 
     # transform from pandas dataframe to numpy array
     train_raw_np = np.array(train_raw_df)
@@ -726,7 +726,7 @@ def learning():
                     input_others = input_raw_mean
                 elif others_inputtype == 'max':
                     input_others = input_raw_max
-                    
+
                 grid_num = 9
 
                 x = np.linspace(input_raw_min[combi_[0]], input_raw_max[combi_[0]], grid_num)
@@ -769,23 +769,23 @@ def learning():
                     pp.set_label(Z_name,  fontsize=24)
                     #plt.show()
 
-                    plt.savefig(parent_path / 'results' / theme_name / 'predict_sr_contour' / 
+                    plt.savefig(parent_path / 'results' / theme_name / 'predict_sr_contour' /
                                 (str(cnt_combi) + str(X_name) +'_' +  str(Y_name) +'_' + str(Z_name)  + '_'+ others_inputtype +  '.png'))
 
                     if cnt_combi == 0 and others_inputtype == 'mean':
                         # contour
 
                         Image.MAX_IMAGE_PIXELS = None
-                        img6 = Image.open(parent_path / 'results' / theme_name / 'predict_sr_contour' / 
+                        img6 = Image.open(parent_path / 'results' / theme_name / 'predict_sr_contour' /
                                 (str(cnt_combi) + str(X_name) +'_' +  str(Y_name) +'_' + str(Z_name)  + '_'+ others_inputtype +  '.png'))
 
                         img6_resize = img6.resize((photo_size, photo_size), Image.LANCZOS)
-                        img6_resize.save(parent_path / 'results' / theme_name / 'predict_sr_contour' / 
+                        img6_resize.save(parent_path / 'results' / theme_name / 'predict_sr_contour' /
                                 (str(cnt_combi) + str(X_name) +'_' +  str(Y_name) +'_' + str(Z_name)  + '_'+ others_inputtype +  '_resized.png'))
 
 
                         global image_contour
-                        image_open = Image.open(parent_path / 'results' / theme_name / 'predict_sr_contour' / 
+                        image_open = Image.open(parent_path / 'results' / theme_name / 'predict_sr_contour' /
                                 (str(cnt_combi) + str(X_name) +'_' +  str(Y_name) +'_' + str(Z_name)  + '_'+ others_inputtype +  '_resized.png'))
                         image_contour = ImageTk.PhotoImage(image_open, master=frame2)
 
@@ -1023,8 +1023,8 @@ def learning():
 
 
         n_trials= 2 + Booleanvar_optuna_sklearn.get()*77
-        
-        
+
+
         ##################### Linear Regression #####################
 
         model = linear_model.LinearRegression()
@@ -1456,8 +1456,8 @@ def learning():
             model_name = 'RFR'
             save_summary(model_raw, model_std, model_name)
 
-        
-        
+
+
         ##################### Regression of XGBoost #####################
         # refer from https://github.com/FelixNeutatz/ED2/blob/23170b05c7c800e2d2e2cf80d62703ee540d2bcb/src/model/ml/CellPredict.py
 
@@ -1654,7 +1654,7 @@ def learning():
     if is_dl == False:
         print('You didn\'t choose deeplearning')
         print('Finished!')
-        
+
     elif is_dl == True :
         print('start deeplearning')
 
