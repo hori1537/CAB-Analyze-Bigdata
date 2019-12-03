@@ -82,7 +82,7 @@ parent_path = program_path.parent.resolve()
 data_path           = parent_path / 'data'
 data_processed_path = data_path / 'processed'
 graphviz_path = program_path / 'release' / 'bin' / 'dot.exe'
-graphviz_path =graphviz_path.resolve()
+graphviz_path = graphviz_path.resolve()
 chkprint(program_path)
 
 columns_results = [ 'model_name',
@@ -99,12 +99,14 @@ allmodel_results_std_df = pd.DataFrame(columns = columns_results)
 summary_results_raw_df = pd.DataFrame(columns = columns_results)
 summary_results_std_df = pd.DataFrame(columns = ['model_name', 'train_model_std_mse',  'test_model_std_mse'])
 
+
 def learning():
+    '''
     if Booleanvar_bayesian_opt.get() == True and t_output_clm_num != 1:
         from tkinter import messagebox
         messagebox.showwarning('Warning', 'ベイズ最適化は目的関数が１つでのみ有効です')
         return
-
+    '''
     # cav & theme
     csv_path = t_csv_filepath.get()
 
@@ -186,42 +188,51 @@ def learning():
     print('processed_data_df.describe()')
     print(processed_data_df.describe())
 
-    input_processed_df  = processed_data_df.iloc[:, info_col  : input_col]
-    output_processed_df = processed_data_df.iloc[:, input_col : output_col]
+    input_processed_df          = processed_data_df.iloc[:, info_col  : input_col]
+    output_processed_df         = processed_data_df.iloc[:, input_col : output_col]
+    lastoutput_processed_df    =  processed_data_df.iloc[:, -1:]
+
+    #print(lastoutput_processed_df)
+
     in_output_processed_df = pd.concat([input_processed_df, output_processed_df], axis=1)
     list_df             = [input_processed_df, output_processed_df]
 
     info_feature_names              = info_processed_df.columns
     input_feature_names             = input_processed_df.columns
     output_feature_names            = output_processed_df.columns
+    lastoutput_feature_names        = lastoutput_processed_df.columns
     list_feature_names              = [input_feature_names, output_feature_names]
 
     predict_input_feature_names     = list(map(lambda x:x + '-predict' , input_feature_names))
     predict_output_feature_names    = list(map(lambda x:x + '-predict' , output_feature_names))
+    predict_lastoutput_feature_names    = list(map(lambda x:x + '-predict' , lastoutput_feature_names))
+
     list_predict_feature_names      = [predict_input_feature_names, predict_output_feature_names]
 
     in_output_sc_model  = StandardScaler()
     input_sc_model      = StandardScaler()
     output_sc_model     = StandardScaler()
+    lastoutput_sc_model = StandardScaler()
     list_sc_model       = [input_sc_model, output_sc_model]
 
     in_output_std_df    = pd.DataFrame(in_output_sc_model.fit_transform(in_output_processed_df))
     input_std_df        = pd.DataFrame(input_sc_model.fit_transform(input_processed_df))
     output_std_df       = pd.DataFrame(output_sc_model.fit_transform(output_processed_df))
+    lastoutput_std_df   = pd.DataFrame(lastoutput_sc_model.fit_transform(lastoutput_processed_df))
 
     input_raw_des   = input_processed_df.describe()
     output_raw_des  = output_processed_df.describe()
 
     input_raw_max   = input_raw_des.loc['max']
     input_raw_min   = input_raw_des.loc['min']
-    input_raw_mean   = input_raw_des.loc['mean']
+    input_raw_mean  = input_raw_des.loc['mean']
     output_raw_max  = output_raw_des.loc['max']
     output_raw_min  = output_raw_des.loc['min']
-    output_raw_mean  = output_raw_des.loc['mean']
+    output_raw_mean = output_raw_des.loc['mean']
 
     list_raw_max    = [input_raw_max, output_raw_max]
     list_raw_min    = [input_raw_min, output_raw_min]
-    list_raw_mean    = [input_raw_mean, output_raw_mean]
+    list_raw_mean   = [input_raw_mean, output_raw_mean]
 
     input_std_des   = input_std_df.describe()
     output_std_des  = output_std_df.describe()
@@ -238,12 +249,12 @@ def learning():
     np.random.seed(10)
     random.seed(10)
     train_std_df, test_std_df  = train_test_split(in_output_std_df, test_size=0.1)
-    train_std_df, val_std_df   = train_test_split(train_std_df, test_size=0.1)
+    train_std_df, val_std_df   = train_test_split(train_std_df, test_size=0.11111)
 
     np.random.seed(10)
     random.seed(10)
     train_raw_df, test_raw_df  = train_test_split(in_output_processed_df, test_size=0.1)
-    train_raw_df, val_raw_df   = train_test_split(train_raw_df, test_size=0.1)
+    train_raw_df, val_raw_df   = train_test_split(train_raw_df, test_size=0.11111)
 
     # transform from pandas dataframe to numpy array
     train_raw_np = np.array(train_raw_df)
@@ -397,7 +408,6 @@ def learning():
         model_std.fit(list_train_std[in_n], list_train_std[out_n])
 
         model_raw, model_std = save_regression(model_raw, model_std, model_name)
-
         return model_raw, model_std
 
 
@@ -654,51 +664,66 @@ def learning():
             gridsearch_predict(model_raw, model_std, model_name)
 
 
-        # bayesian Optimization
-        # refer https://qiita.com/shinmura0/items/2b54ab0117727ce007fd
-        # refer https://qiita.com/marshi/items/51b82a7b990d51bd98cd
-
         if is_bayesian_opt == True:
+            # refer https://qiita.com/shinmura0/items/2b54ab0117727ce007fd
+            # refer https://qiita.com/marshi/items/51b82a7b990d51bd98cd
             print('start the bayesian optimaization')
+
             def function_for_bayesian(x):
+                optimize_type = var_bayesian.get()
 
                 if optimize_type == 0:
                     #max
-                    return model_std.predict(x) * -1
+                    #print('max')
+                    #print(model_std.predict(x)[0][-1] * -1)
+                    return model_std.predict(x)[0][-1] * -1
                 elif optimize_type == 1:
                     #min
-                    return model_std.predict(x)
+                    #print('min')
+                    #print(model_std.predict(x)[0][-1])
+                    return model_std.predict(x)[0][-1]
                 elif optimize_type ==2 and t_bayesian_val.get != '':
-                    target_std_value = list_sc_model[out_n].transform(t_bayesian_val.get())
+                    target_std_value = lastoutput_sc_model.transform(t_bayesian_val.get())[0][-1]
 
-                    return (model_std.predict(x) - target_std_value)**2
+                    #print('target')
+                    return (model_std.predict(x)[0][-1] - target_std_value)**2
                 else:
-                    return model_std.predict(x)
+                    return model_std.predict(x)[0][-1]
 
+            bounds = []
 
+            for i in range(list_num[in_n]):
+                b_max = list_std_max[in_n][i]
+                b_min = list_std_min[in_n][i]
+                print(b_max)
+                print(b_min)
 
-            if inv_ == 0 and list_num[out_n] ==1 :
-                bounds = []
-                for i in range(list_num[in_n]):
-                    bounds.append({'name': list_feature_names[in_n][i] , 'type': 'continuous', 'domain': (list_std_min[in_n][i],list_std_max[in_n][i])})
+                bounds.append({'name': list_feature_names[in_n][i] , 'type': 'continuous', 'domain': (list_std_min[in_n][i],list_std_max[in_n][i])})
 
-                #chkprint(bounds)
-                myBopt = GPyOpt.methods.BayesianOptimization(f=function_for_bayesian, domain=bounds)
+            chkprint(bounds)
+            myBopt = GPyOpt.methods.BayesianOptimization(f=function_for_bayesian, domain=bounds)
+            myBopt.run_optimization(max_iter=25)
 
-                myBopt.run_optimization(max_iter=10)
+            print('result of bayesian optimization')
+            #print([myBopt.x_opt])
+            #print([myBopt.fx_opt])
+            #print(list_sc_model[in_n].inverse_transform(np.array([myBopt.x_opt])))
+            #print(lastoutput_sc_model.inverse_transform(np.array([myBopt.fx_opt])))
 
-                print('result of bayesian optimization')
-                print(list_sc_model[in_n].inverse_transform(np.array([myBopt.x_opt])))
-                print(list_sc_model[out_n].inverse_transform(np.array([myBopt.fx_opt])))
-                optimized_input_df = pd.DataFrame(list_sc_model[in_n].inverse_transform(np.array([myBopt.x_opt])), columns = list_feature_names[in_n])
-                optimized_output_df = pd.DataFrame(list_sc_model[out_n].inverse_transform(np.array([myBopt.fx_opt])),columns = list_feature_names[out_n])
-                print(model_name)
-                model_name_df = pd.Series(model_name)
-                optimized_result_df = pd.concat([model_name_df, optimized_input_df, optimized_output_df], axis =1)
-                optimized_result_df.to_csv(parent_path / 'results' / theme_name / 'bayesian_opt' / (str(model_name)+ '_bayesian_result.csv'), index=False)
+            optimized_input_df = pd.DataFrame(list_sc_model[in_n].inverse_transform(np.array([myBopt.x_opt])), columns = list_feature_names[in_n])
+            optimized_output_df = pd.DataFrame(lastoutput_sc_model.inverse_transform(np.array([myBopt.fx_opt])),columns = lastoutput_feature_names)
 
-                allmodel_bayesian_opt_df = pd.concat([allmodel_bayesian_opt_df, optimized_result_df])
-            return
+            print(model_name)
+            print('input')
+            print(optimized_input_df)
+            print('output')
+            print(optimized_output_df)
+            model_name_df = pd.Series(model_name)
+
+            optimized_result_df = pd.concat([model_name_df, optimized_input_df, optimized_output_df], axis =1)
+            optimized_result_df.to_csv(parent_path / 'results' / theme_name / 'bayesian_opt' / (str(model_name)+ '_bayesian_result.csv'), index=False)
+            allmodel_bayesian_opt_df = pd.concat([allmodel_bayesian_opt_df, optimized_result_df])
+            # end of bayesian_optimization
 
         # end of save_regression
         return model_raw, model_std
@@ -770,23 +795,23 @@ def learning():
                     #plt.show()
 
                     plt.savefig(parent_path / 'results' / theme_name / 'predict_sr_contour' /
-                                (str(cnt_combi) + str(X_name) +'_' +  str(Y_name) +'_' + str(Z_name)  + '_'+ others_inputtype +  '.png'))
+                                (str(Z_name) + '_'+ str(X_name) +'_' +  str(Y_name) +'_' +  others_inputtype +  '.png'))
 
                     if cnt_combi == 0 and others_inputtype == 'mean':
                         # contour
 
                         Image.MAX_IMAGE_PIXELS = None
                         img6 = Image.open(parent_path / 'results' / theme_name / 'predict_sr_contour' /
-                                (str(cnt_combi) + str(X_name) +'_' +  str(Y_name) +'_' + str(Z_name)  + '_'+ others_inputtype +  '.png'))
+                                (str(Z_name) + '_'+ str(X_name) +'_' +  str(Y_name) +'_' +  others_inputtype +  '.png'))
 
                         img6_resize = img6.resize((photo_size, photo_size), Image.LANCZOS)
                         img6_resize.save(parent_path / 'results' / theme_name / 'predict_sr_contour' /
-                                (str(cnt_combi) + str(X_name) +'_' +  str(Y_name) +'_' + str(Z_name)  + '_'+ others_inputtype +  '_resized.png'))
+                                (str(Z_name) + '_'+ str(X_name) +'_' +  str(Y_name) +'_' +  others_inputtype +  '_resized.png'))
 
 
                         global image_contour
                         image_open = Image.open(parent_path / 'results' / theme_name / 'predict_sr_contour' /
-                                (str(cnt_combi) + str(X_name) +'_' +  str(Y_name) +'_' + str(Z_name)  + '_'+ others_inputtype +  '_resized.png'))
+                                (str(Z_name) + '_'+ str(X_name) +'_' +  str(Y_name) +'_' +  others_inputtype +  '_resized.png'))
                         image_contour = ImageTk.PhotoImage(image_open, master=frame2)
 
                         canvas_contour.create_image(int(photo_size/2),int(photo_size/2), image=image_contour)
@@ -1564,7 +1589,7 @@ def learning():
         # R2 score
         plt.figure()
         #https://own-search-and-study.xyz/2016/08/03/pandas%E3%81%AEplot%E3%81%AE%E5%85%A8%E5%BC%95%E6%95%B0%E3%82%92%E4%BD%BF%E3%81%84%E3%81%93%E3%81%AA%E3%81%99/
-        summary_results_std_df.plot(kind='bar', x='model_name', y =['train_model_score', 'test_model_score'], rot=70, figsize=(12,12), fontsize=18, yticks=[0,0.5,1.0])
+        summary_results_std_df.plot(kind='bar', x='model_name', y =['train_model_score', 'test_model_score'], rot=70, figsize=(12,12), fontsize=18, yticks=[0,0.5,1.0], ylim=[0,1.0])
         plt.savefig(parent_path / 'results' /  theme_name / 'summary_of_score.png', dpi = 240)
 
         Image.MAX_IMAGE_PIXELS = None
