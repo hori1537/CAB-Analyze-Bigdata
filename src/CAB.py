@@ -99,14 +99,7 @@ allmodel_results_std_df = pd.DataFrame(columns = columns_results)
 summary_results_raw_df = pd.DataFrame(columns = columns_results)
 summary_results_std_df = pd.DataFrame(columns = ['model_name', 'train_model_std_mse',  'test_model_std_mse'])
 
-
 def learning():
-    '''
-    if Booleanvar_bayesian_opt.get() == True and t_output_clm_num != 1:
-        from tkinter import messagebox
-        messagebox.showwarning('Warning', 'ベイズ最適化は目的関数が１つでのみ有効です')
-        return
-    '''
     # cav & theme
     csv_path = t_csv_filepath.get()
 
@@ -375,27 +368,6 @@ def learning():
         return
 
 
-    #### dtree viz #####
-    '''
-    train_output_  = train_output.flatten()
-    try:
-        viz = dtreeviz.trees.dtreeviz(model_raw,
-                                    train_input,
-                                    train_output_,
-                                    target_name   = list_predict_feature_names[out_n],
-                                    feature_names = list_predict_feature_names[in_n])
-
-        viz.save('results' + os.sep + theme_name +  os.sep + 'sklearn'+ os.sep + 'tree' + os.sep + 'decisiontree' + str(max_depth) + '.svg')
-        #viz.view()
-        #sys.exit()
-
-    except:
-        #print('dtreeviz error')
-        # PATH
-        # output_num more than 2
-
-    '''
-
     #########   regression by the scikitlearn model ###############
     def fit_model_std_raw(model, model_name):
         print(model_name)
@@ -482,7 +454,7 @@ def learning():
         global allmodel_results_raw_df
         global allmodel_results_std_df
         global allmodel_results_stdtoraw_df
-        global allmodel_bayesian_opt_df
+        #global allmodel_bayesian_opt_df
 
         train_output_predict_raw    = model_raw.predict(list_train_raw[in_n])
         test_output_predict_raw     = model_raw.predict(list_test_raw[in_n])
@@ -664,66 +636,7 @@ def learning():
             gridsearch_predict(model_raw, model_std, model_name)
 
 
-        if is_bayesian_opt == True:
-            # refer https://qiita.com/shinmura0/items/2b54ab0117727ce007fd
-            # refer https://qiita.com/marshi/items/51b82a7b990d51bd98cd
-            print('start the bayesian optimaization')
 
-            def function_for_bayesian(x):
-                optimize_type = var_bayesian.get()
-
-                if optimize_type == 0:
-                    #max
-                    #print('max')
-                    #print(model_std.predict(x)[0][-1] * -1)
-                    return model_std.predict(x)[0][-1] * -1
-                elif optimize_type == 1:
-                    #min
-                    #print('min')
-                    #print(model_std.predict(x)[0][-1])
-                    return model_std.predict(x)[0][-1]
-                elif optimize_type ==2 and t_bayesian_val.get != '':
-                    target_std_value = lastoutput_sc_model.transform(t_bayesian_val.get())[0][-1]
-
-                    #print('target')
-                    return (model_std.predict(x)[0][-1] - target_std_value)**2
-                else:
-                    return model_std.predict(x)[0][-1]
-
-            bounds = []
-
-            for i in range(list_num[in_n]):
-                b_max = list_std_max[in_n][i]
-                b_min = list_std_min[in_n][i]
-                print(b_max)
-                print(b_min)
-
-                bounds.append({'name': list_feature_names[in_n][i] , 'type': 'continuous', 'domain': (list_std_min[in_n][i],list_std_max[in_n][i])})
-
-            chkprint(bounds)
-            myBopt = GPyOpt.methods.BayesianOptimization(f=function_for_bayesian, domain=bounds)
-            myBopt.run_optimization(max_iter=25)
-
-            print('result of bayesian optimization')
-            #print([myBopt.x_opt])
-            #print([myBopt.fx_opt])
-            #print(list_sc_model[in_n].inverse_transform(np.array([myBopt.x_opt])))
-            #print(lastoutput_sc_model.inverse_transform(np.array([myBopt.fx_opt])))
-
-            optimized_input_df = pd.DataFrame(list_sc_model[in_n].inverse_transform(np.array([myBopt.x_opt])), columns = list_feature_names[in_n])
-            optimized_output_df = pd.DataFrame(lastoutput_sc_model.inverse_transform(np.array([myBopt.fx_opt])),columns = lastoutput_feature_names)
-
-            print(model_name)
-            print('input')
-            print(optimized_input_df)
-            print('output')
-            print(optimized_output_df)
-            model_name_df = pd.Series(model_name)
-
-            optimized_result_df = pd.concat([model_name_df, optimized_input_df, optimized_output_df], axis =1)
-            optimized_result_df.to_csv(parent_path / 'results' / theme_name / 'bayesian_opt' / (str(model_name)+ '_bayesian_result.csv'), index=False)
-            allmodel_bayesian_opt_df = pd.concat([allmodel_bayesian_opt_df, optimized_result_df])
-            # end of bayesian_optimization
 
         # end of save_regression
         return model_raw, model_std
@@ -821,6 +734,67 @@ def learning():
                     plt.close(plt_con)
 
             cnt_combi += 1
+
+
+    def bayesian_optimization(model_raw, model_name):
+        if is_bayesian_opt == True:
+            # refer https://qiita.com/shinmura0/items/2b54ab0117727ce007fd
+            # refer https://qiita.com/marshi/items/51b82a7b990d51bd98cd
+            print('start the bayesian optimaization')
+
+            def function_for_bayesian(x):
+                optimize_type = var_bayesian.get()
+
+                if optimize_type == 0:
+                    #max
+                    return model_raw.predict(x)[0][-1] * -1
+                elif optimize_type == 1:
+                    #min
+                    return model_raw.predict(x)[0][-1]
+                elif optimize_type ==2 and t_bayesian_val.get != '':
+                    target_value = t_bayesian_val.get()
+                    #target_std_value = lastoutput_sc_model.transform(t_bayesian_val.get())[0][-1]
+
+                    #print('target')
+                    return (model_raw.predict(x)[0][-1] - target_value)**2
+                else:
+                    return model_raw.predict(x)[0][-1]
+
+            bounds = []
+
+            for i in range(list_num[in_n]):
+                b_max = list_raw_max[in_n][i]
+                b_min = list_raw_min[in_n][i]
+
+                bounds.append({'name': list_feature_names[in_n][i] , 'type': 'continuous', 'domain': (b_min, b_max)})
+
+            #chkprint(bounds)
+            myBopt = GPyOpt.methods.BayesianOptimization(f=function_for_bayesian, domain=bounds)
+            myBopt.run_optimization(max_iter=25)
+
+            print('result of bayesian optimization')
+            #print([myBopt.x_opt])
+            #print([myBopt.fx_opt])
+            #print(list_sc_model[in_n].inverse_transform(np.array([myBopt.x_opt])))
+            #print(lastoutput_sc_model.inverse_transform(np.array([myBopt.fx_opt])))
+
+            optimized_input_df = pd.DataFrame(np.array([myBopt.x_opt]), columns = list_feature_names[in_n])
+            optimized_output_raw = model_raw.predict(np.array([myBopt.x_opt]))
+            #optimized_output_raw = lastoutput_sc_model.inverse_transform(optimized_output_std)
+            optimized_output_df = pd.DataFrame(optimized_output_raw[-1], columns = lastoutput_feature_names)
+
+            print(model_name)
+            print('input')
+            print(optimized_input_df)
+            print('output')
+            print(optimized_output_df)
+            model_name_df = pd.Series(model_name)
+
+            optimized_result_df = pd.concat([model_name_df, optimized_input_df, optimized_output_df], axis =1)
+            optimized_result_df.to_csv(parent_path / 'results' / theme_name / 'bayesian_opt' / (str(model_name)+ '_bayesian_result.csv'), index=False)
+            #allmodel_bayesian_opt_df = pd.concat([allmodel_bayesian_opt_df, optimized_result_df])
+            # end of bayesian_optimization
+
 
 
     def save_summary(model_raw, model_std, model_name):
@@ -1576,6 +1550,7 @@ def learning():
             save_summary(model_raw, model_std, model_name)
 
             save_contour(model_raw, model_name)
+            bayesian_optimization(model_raw, model_name)
 
 
         ################# to csv ##############################
@@ -1614,7 +1589,7 @@ def learning():
         optimize_type = var_bayesian.get()
         print(optimize_dic[optimize_type])
 
-        allmodel_bayesian_opt_df.to_csv(os.path.join(parent_path, 'results', theme_name, 'bayesian_opt_' +str(optimize_dic[optimize_type])+  '.csv'), index=False)
+        #allmodel_bayesian_opt_df.to_csv(os.path.join(parent_path, 'results', theme_name, 'bayesian_opt_' +str(optimize_dic[optimize_type])+  '.csv'), index=False)
         #######################################################
 
         print('Sklearn finished!')
@@ -1879,7 +1854,7 @@ columns_results = ['model_name',
                    'train_model_score',
                    'test_model_score']
 allmodel_results_df = pd.DataFrame(columns = columns_results)
-allmodel_bayesian_opt_df = pd.DataFrame()
+#allmodel_bayesian_opt_df = pd.DataFrame()
 
 # tkinter
 root = tkinter.Tk()
