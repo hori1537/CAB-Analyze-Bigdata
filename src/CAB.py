@@ -740,7 +740,7 @@ def learning():
         if is_bayesian_opt == True:
             # refer https://qiita.com/shinmura0/items/2b54ab0117727ce007fd
             # refer https://qiita.com/marshi/items/51b82a7b990d51bd98cd
-            print('start the bayesian optimaization')
+            print('start the bayesian optimaization using xgboost model')
 
             def function_for_bayesian(x):
                 optimize_type = var_bayesian.get()
@@ -781,7 +781,7 @@ def learning():
             optimized_input_df = pd.DataFrame(np.array([myBopt.x_opt]), columns = list_feature_names[in_n])
             optimized_output_raw = model_raw.predict(np.array([myBopt.x_opt]))
             #optimized_output_raw = lastoutput_sc_model.inverse_transform(optimized_output_std)
-            optimized_output_df = pd.DataFrame(optimized_output_raw[-1], columns = lastoutput_feature_names)
+            optimized_output_df = pd.DataFrame(optimized_output_raw[:][-1], columns = lastoutput_feature_names)
 
             print(model_name)
             print('input')
@@ -991,7 +991,7 @@ def learning():
         chkprint(importances)
         importances_sort    = importances.argsort()[::-1]
         split_base          = np.array([15,13,9,4,4,3,3,3]) # max:758160
-        split_base          = np.array([10,7,3,3,3,3,3,3])  # max:51030
+        #split_base          = np.array([10,7,3,3,3,3,3,3])  # max:51030
 
         # set the split num from importances rank of random forest regressor
         split_num   = np.full(len(importances_sort),1)
@@ -2011,10 +2011,6 @@ else:
     canvas_contour.create_image(int(photo_size/2),int(photo_size/2), image=image_contour)
     canvas_contour.grid(row=2, column = 3, sticky= W)
 
-
-
-
-
 label_csv.grid(row=2,column=1,sticky=E)
 entry_csv_filename.grid(row=2,column=2,sticky=W)
 button_choose_csv.grid(row=1,column=2,sticky=W)
@@ -2043,7 +2039,6 @@ Radiobutton_bayesian_val.grid(row = 12, column = 5)
 entry_bayesian_val.grid(row = 13, column = 5)
 
 button_learning.grid(row = 14 , column = 2, sticky = W)
-
 
 for child in frame1.winfo_children():
     child.grid_configure(padx=5, pady=5)
