@@ -9,6 +9,7 @@ import random
 import math
 import time
 import copy
+import re
 
 import itertools
 from pathlib import Path
@@ -152,40 +153,61 @@ def learning():
     else:
         pass
 
+    # delete codes(" ", "　", "/" etc..) from columns name
+    def replace_codes(x):
+        code_regex = re.compile('[!"#$%&\'\\\\()*+,-./:;<=>?@[\\]^_`{|}~「」〔〕“”〈〉『』【】＆＊・（）＄＃＠。、？！｀＋￥％]')
+        x = code_regex.sub('', x)
+        x = x.strip()
+        replace_list = [' ', '　', '/', ':', '-', '/n/r', '/r/n' , '\n']
+        for code in replace_list:
+            x = x.replace(code , '_')
+
+        return x
+
+
+    #raw_data_df.rename(columns=replace_codes)
+    columns_name = raw_data_df.columns
+    new_columns_name = [replace_codes(i) for i in columns_name]
+    raw_data_df.columns = new_columns_name
+    print(raw_data_df.columns)
+
     # csv information data columns
+
+    def one_hot_vectorize(data_df):
+        # one-hot vectorize
+        category_data_df = data_df.select_dtypes(exclude=['number', 'bool'])
+        category_list = list(category_data_df.columns)
+        ce_onehot   = category_encoders.OneHotEncoder(cols = category_list, handle_unknown = 'impute')
+        one_hot_vectorize_data_df = ce_onehot.fit_transform(data_df)
+
+        return one_hot_vectorize_data_df
+
+
     raw_data_info_col    = info_num
-    raw_data_input_col   = info_num + input_num
-    raw_data_output_col  = info_num + input_num + output_num
+    raw_data_input_col    = info_num + input_num
+    raw_data_output_col    = info_num + input_num + output_num
 
     info_raw_df         = raw_data_df.iloc[:, 0 : raw_data_info_col]
-    info_processed_df   = info_raw_df
+    info_processed_df = info_raw_df
     in_output_raw_df    = raw_data_df.iloc[:, raw_data_info_col  : raw_data_output_col]
+    one_hot_vectorize_inoutput_df = one_hot_vectorize(in_output_raw_df)
 
-    # one-hot vectorize
-    category_data_df = in_output_raw_df.select_dtypes(exclude=['number', 'bool'])
-    category_list = list(category_data_df.columns)
-    ce_onehot   = category_encoders.OneHotEncoder(cols = category_list, handle_unknown = 'impute')
-    processed_data_df = ce_onehot.fit_transform(in_output_raw_df)
-
-    input_num_plus= len(processed_data_df.columns) - len(in_output_raw_df.columns)
-
+    input_num_plus= len(one_hot_vectorize_inoutput_df.columns) - len(in_output_raw_df.columns)
     input_num   += input_num_plus
     list_num    = [input_num, output_num]
 
-    info_col    = info_num
-    input_col   = info_num + input_num
-    output_col  = info_num + input_num + output_num
+    input_processed_df          = one_hot_vectorize_inoutput_df.iloc[:, : input_num]
+    output_processed_df         = one_hot_vectorize_inoutput_df.iloc[:, input_num :]
+    lastoutput_processed_df    =  one_hot_vectorize_inoutput_df.iloc[:, -1:]
 
-    print('processed_data_df.head()')
-    print(processed_data_df.head())
-    print('processed_data_df.describe()')
-    print(processed_data_df.describe())
+    print(info_num)
+    print(input_num)
+    print(output_num)
 
-    input_processed_df          = processed_data_df.iloc[:, info_col  : input_col]
-    output_processed_df         = processed_data_df.iloc[:, input_col : output_col]
-    lastoutput_processed_df    =  processed_data_df.iloc[:, -1:]
-
-    #print(lastoutput_processed_df)
+    print('input_processed_df.describe()')
+    print(input_processed_df.describe())
+    print('output_processed_df.describe()')
+    print(output_processed_df.describe())
 
     in_output_processed_df = pd.concat([input_processed_df, output_processed_df], axis=1)
     list_df             = [input_processed_df, output_processed_df]
@@ -193,6 +215,10 @@ def learning():
     info_feature_names              = info_processed_df.columns
     input_feature_names             = input_processed_df.columns
     output_feature_names            = output_processed_df.columns
+
+    chkprint(input_feature_names)
+    chkprint(output_feature_names)
+
     lastoutput_feature_names        = lastoutput_processed_df.columns
     list_feature_names              = [input_feature_names, output_feature_names]
 
@@ -307,7 +333,7 @@ def learning():
     print('')
 
     plt.figure(figsize=(5,5))
-    sns.heatmap(in_output_raw_df.corr(), cmap = 'Oranges',annot=False, linewidths = .5)
+    sns.heatmap(in_output_raw_df.corr(), cmap= sns.color_palette('coolwarm', 10),annot=False, linewidths = .5, vmin =-1.0 , vmax=1.0)
     plt.savefig(parent_path / 'results' /  theme_name / 'correlation_coefficient.png', dpi = 240)
     #plt.close()
 
