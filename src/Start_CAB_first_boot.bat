@@ -55,7 +55,7 @@ exit /B
 echo condaコマンドは正常に実行されました
 )
 
-SET VIRTUAL_ENV_NAME="CAB_test"
+SET VIRTUAL_ENV_NAME="CAB_test_20200115"
 
 REM 仮想環境をactivate
 @echo on
