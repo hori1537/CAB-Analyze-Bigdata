@@ -42,12 +42,13 @@ from sklearn.metrics import mean_squared_error, r2_score
 from sklearn.multioutput import MultiOutputRegressor
 from sklearn.preprocessing import StandardScaler
 from sklearn.tree import _tree
+from sklearn.tree import export_graphviz
 
 import GPy
 import GPyOpt
 
 import category_encoders
-
+import graphviz
 try:
     import dtreeviz.trees
     import dtreeviz.shadow
@@ -66,11 +67,6 @@ import optuna
 def chkprint(*args):
     names = {id(v):k for k,v in currentframe().f_back.f_locals.items()}
     print(', '.join(names.get(id(arg),'???')+' = '+repr(arg) for arg in args))
-
-# get variable name
-def get_variablename(*args):
-    names = {id(v):k for k,v in currentframe().f_back.f_locals.items()}
-    return '_' + ', '.join(names.get(id(arg),'???') + '_' + repr(arg) for arg in args)
 
 # fix the random.seed, it can get the same results every time to run this program
 np.random.seed(1)
@@ -352,31 +348,7 @@ def learning():
 
     canvas_pairplot.create_image(int(photo_size/2),int(photo_size/2), image=image_pairplot)
 
-    #######  extract descision tree   ################################################
-    def tree_to_code(tree, feature_names):
-        tree_ = tree.tree_
-        feature_name = [
-            feature_names[i] if i != _tree.TREE_UNDEFINED else "undefined!"
-            for i in tree_.feature
-        ]
-
-        #print("def tree({}):".format(", ".join(feature_names)))
-
-        def recurse(node, depth):
-            indent = "  " * depth
-
-            with open(str(save_address)+ 'tree.txt', 'a') as f:
-                if tree_.feature[node] != _tree.TREE_UNDEFINED:
-                    name = feature_name[node]
-                    threshold = tree_.threshold[node]
-                    recurse(tree_.children_left[node], depth + 1)
-                    recurse(tree_.children_right[node], depth + 1)
-                else:
-                    pass
-
-        recurse(0, 1)
-
-    def gridsearch_predict(model_raw,model_std, model_name):
+    def gridsearch_predict(model_raw,model_std, model_name): #全探索
         start_time = time.time()
 
         gridsearch_predict_raw_df   = pd.DataFrame(model_raw.predict(gridsearch_input_raw), columns = list_predict_feature_names[out_n])
@@ -413,23 +385,15 @@ def learning():
         def save_tree_topdf(model, model_name):
             dot_data = StringIO()
             try:
-                sklearn.tree.export_graphviz(model, out_file=dot_data, feature_names = list_feature_names[in_n])
+                dot_data = sklearn.tree.export_graphviz(model, out_file=dot_data, feature_names = list_feature_names[in_n])
             except:
-                xgb.to_graphviz(model,  out_file=dot_data, feature_names = list_feature_names[in_n])
-
-            graph = pydotplus.graph_from_dot_data(dot_data.getvalue())
+                dot_data = xgb.to_graphviz(model,  out_file=dot_data, feature_names = list_feature_names[in_n])
+            #graph = graphviz.Source(dot_data)
+            #graph.render('test_pdf' , format='png')
+            #graph = pydotplus.graph_from_dot_data(dot_data.getvalue())
             # refer from https://qiita.com/wm5775/items/1062cc1e96726b153e28
             # the Graphviz2.38 dot.exe
-            graph.progs = {'dot':graphviz_path}
 
-            #graph.write_pdf(model_name + '.pdf')
-
-            #graph.write_pdf(os.path.join(str(parent_path.resolve()), 'results', theme_name, 'sklearn', 'tree', str(model_name) + '.pdf'))
-            #tmp_path = (parent_path / 'results' / theme_name / 'tree' / (str(model_name) + '.pdf')).name
-            #graph.write_pdf(tmp_path)
-            #graph.write_pdf(r'C:\Users\1310202\Desktop\20180921\horie\data_science\データ解析\CAB-Analyze-Bigdata-master\new\src\results\Bushing\sklearn\tree\DecisionTreeRegressor_max_depth_7.pdf')
-
-            pass
 
             return
 
@@ -442,9 +406,9 @@ def learning():
             chkprint(model_name)
             chkprint(label)
             chkprint(importances)
-            if inv_ == True:
+            #if inv_ == True:
                 #sys.exit()
-                pass
+                #pass
 
             plt.bar(label, importances)
 
@@ -479,7 +443,7 @@ def learning():
 
         global allmodel_results_raw_df
         global allmodel_results_std_df
-        global allmodel_results_stdtoraw_df
+        #global allmodel_results_stdtoraw_df
         #global allmodel_bayesian_opt_df
 
         train_output_predict_raw    = model_raw.predict(list_train_raw[in_n])
@@ -629,42 +593,6 @@ def learning():
                         # save_tree to pdf
                         save_tree_topdf(model_raw.estimators_[i], model_name_i)
 
-
-
-            '''
-            if 'XGB' in model_name:
-                for i in range(3):
-
-                    model_name_ = model_name + '_tree-'+ str(i)
-                    graph = xgb.to_graphviz(model_raw.estimators_[i], num_trees = i)
-
-                    graph.render('results' + os.sep + theme_name +  os.sep + 'sklearn'+ os.sep + 'tree' + os.sep
-                                    + model_name_ +str(i)+ '.png')
-
-                if hasattr(model_raw.estimators_[i], 'get_booster'):
-                    # refer from https://github.com/dmlc/xgboost/issues/1238
-                    #print('(model_raw.estimators_[i].get_booster().feature_names')
-                    #print((model_raw.estimators_[i].get_booster().feature_names))
-
-                    ##print(type((model_raw.estimators_[i].get_booster)))
-                    #for x in dir(model_raw.estimators_[i].get_booster):
-                    #    #print(x)
-                    #sys.exit()
-                    pass
-                else:
-                    #print('get booster not found')
-                    pass
-            '''
-
-
-        # call gridsearch_predict
-        if is_gridsearch == True:
-            gridsearch_predict(model_raw, model_std, model_name)
-
-
-
-
-        # end of save_regression
         return model_raw, model_std
 
 
@@ -762,7 +690,7 @@ def learning():
             cnt_combi += 1
 
 
-    def bayesian_optimization(model_raw, model_name):
+    def bayesian_optimization(model_raw, model_name): #全探索ができないくらい説明変数が多いときにある望みの目的変数を得るために逆探索
         if is_bayesian_opt == True:
             # refer https://qiita.com/shinmura0/items/2b54ab0117727ce007fd
             # refer https://qiita.com/marshi/items/51b82a7b990d51bd98cd
@@ -897,784 +825,791 @@ def learning():
         summary_results_raw_df = pd.concat([summary_results_raw_df, results_raw_df])
         summary_results_std_df = pd.concat([summary_results_std_df, results_std_df])
 
+    #ここから説明変数と目的変数を選択しpredict
 
-    if output_num != 1:
-        list_inverse_predict = [False]
-    elif output_num == 1:
-        list_inverse_predict = [False]
+    in_n    = 0   #リスト中の説明変数を指す
+    out_n   = 1   #リスト中の目的変数を指す
 
+    columns_results = ['model_name',
+                        'train_model_mse',
+                        'train_model_rmse',
+                        'test_model_mse',
+                        'test_model_rmse',
+                        'train_model_score',
+                        'test_model_score']
 
-    for is_inverse_predict in list_inverse_predict: # 0,1
-        chkprint(is_inverse_predict)
+    #########   predict of all candidate by the scikitlearn model ###############
 
-        # False  0: forward predict *normal
-        # True   1: inverse predict
+    # select the feature value by the random forest regressor
+    max_depth = 7
+    model       = sklearn.ensemble.RandomForestRegressor(max_depth = max_depth)
+    model_name  = ''
+    model_name  += 'RandomForestRegressor_'
+    model_name  += 'max_depth_'+str(max_depth)
 
-        inv_    = is_inverse_predict
-        in_n    = is_inverse_predict        # 0 to 1
-        out_n   = not(is_inverse_predict)   # 1 to 0
+    model.fit(list_train_raw[in_n], list_train_raw[out_n]) #リストから0か1を選ぶ
 
-        direction_name_list = ['normal', 'inverse']
-        direction_name      = direction_name_list[inv_]
+    importances     = np.array(model.feature_importances_)
+    label           = list_feature_names[in_n]
+    #important_rank = pd.DataFrame(importances).rank(method="first", ascending=False)
+    #print('important_rank', important_rank)
 
-        columns_results = ['model_name',
-                            'train_model_mse',
-                            'train_model_rmse',
-                            'test_model_mse',
-                            'test_model_rmse',
-                            'train_model_score',
-                            'test_model_score']
+    important_index = np.array(-importances).argsort()
 
-        #allmodel_results_raw_df = pd.DataFrame(columns = columns_results)
-        #allmodel_results_std_df = pd.DataFrame(columns = columns_results)
-        #allmodel_bayesian_opt_df = pd.DataFrame(columns = list_feature_names[in_n])
+    print('important_index', important_index)
 
+    pred_train = model.predict(list_train_raw[in_n])
+    pred_test = model.predict(list_test_raw[in_n])
 
-        #########   predict of all candidate by the scikitlearn model ###############
+    from PIL import Image
 
-        # select the feature value by the random forest regressor
-        max_depth = 7
-        model       = sklearn.ensemble.RandomForestRegressor(max_depth = max_depth)
-        model_name  = ''
-        model_name  += 'RandomForestRegressor_'
-        model_name  += 'max_depth_'+str(max_depth)
+    plt.figure(figsize=(5,5))
+    plt.scatter(list_train_raw[out_n], pred_train, label = 'Train', c = 'blue')
+    plt.title(model_name)
+    plt.xlabel('Measured value')
+    plt.ylabel('Predicted value')
+    plt.scatter(list_test_raw[out_n], pred_test, c = 'lightgreen', label = 'Test', alpha = 0.8)
+    plt.legend(loc = 4)
+    plt.savefig(parent_path / 'results' / theme_name / 'meas_pred.png')
+    #plt.close()
 
-        model.fit(list_train_raw[in_n], list_train_raw[out_n])
+    img1 = Image.open(parent_path / 'results' / theme_name / 'meas_pred.png')
 
-        importances     = np.array(model.feature_importances_)
-        label           = list_feature_names[in_n]
-        #important_rank = pd.DataFrame(importances).rank(method="first", ascending=False)
-        #print('important_rank', important_rank)
+    img1_resize = img1.resize((photo_size, photo_size), Image.LANCZOS)
+    img1_resize.save(parent_path / 'results' / theme_name / 'meas_pred.png')
 
-        important_index = np.array(-importances).argsort()
+    global image_predicted_values
+    image_open = Image.open(parent_path / 'results' / theme_name / 'meas_pred.png')
+    image_predicted_values = ImageTk.PhotoImage(image_open, master=frame2)
 
-        print('important_index', important_index)
-
-        pred_train = model.predict(list_train_raw[in_n])
-        pred_test = model.predict(list_test_raw[in_n])
-
-        from PIL import Image
-
-        plt.figure(figsize=(5,5))
-        plt.scatter(list_train_raw[out_n], pred_train, label = 'Train', c = 'blue')
-        plt.title(model_name)
-        plt.xlabel('Measured value')
-        plt.ylabel('Predicted value')
-        plt.scatter(list_test_raw[out_n], pred_test, c = 'lightgreen', label = 'Test', alpha = 0.8)
-        plt.legend(loc = 4)
-        plt.savefig(parent_path / 'results' / theme_name / 'meas_pred.png')
-        #plt.close()
-
-        img1 = Image.open(parent_path / 'results' / theme_name / 'meas_pred.png')
-
-        img1_resize = img1.resize((photo_size, photo_size), Image.LANCZOS)
-        img1_resize.save(parent_path / 'results' / theme_name / 'meas_pred.png')
-
-        global image_predicted_values
-        image_open = Image.open(parent_path / 'results' / theme_name / 'meas_pred.png')
-        image_predicted_values = ImageTk.PhotoImage(image_open, master=frame2)
-
-        canvas_predicted_values.create_image(int(photo_size/2),int(photo_size/2), image=image_predicted_values)
+    canvas_predicted_values.create_image(int(photo_size/2),int(photo_size/2), image=image_predicted_values)
 
 
-        ########################
-        plt.figure(figsize =(5,5))
-        plt.bar(label, importances)
+    ########################
+    plt.figure(figsize =(5,5))
+    plt.bar(label, importances)
 
-        plt.xticks(rotation=90)
-        plt.xticks(fontsize=8)
-        plt.rcParams["font.size"] = 12
+    plt.xticks(rotation=90)
+    plt.xticks(fontsize=8)
+    plt.rcParams["font.size"] = 12
 
-        plt.title("-" + model_name)
-        plt.savefig(parent_path / 'results' / theme_name / 'tmp_importances.png', dpi = 240)
-        #plt.close()
+    plt.title("-" + model_name)
+    plt.savefig(parent_path / 'results' / theme_name / 'tmp_importances.png', dpi = 240)
+    #plt.close()
 
-        img2 = Image.open(parent_path / 'results' / theme_name / 'tmp_importances.png')
+    img2 = Image.open(parent_path / 'results' / theme_name / 'tmp_importances.png')
 
-        img2_resize = img2.resize((photo_size, photo_size), Image.LANCZOS)
-        img2_resize.save(parent_path / 'results' / theme_name / 'tmp_importances.png')
+    img2_resize = img2.resize((photo_size, photo_size), Image.LANCZOS)
+    img2_resize.save(parent_path / 'results' / theme_name / 'tmp_importances.png')
 
-        global image_important_variable
-        image_open = Image.open(parent_path / 'results' / theme_name / 'tmp_importances.png')
-        image_important_variable = ImageTk.PhotoImage(image_open, master=frame2)
+    global image_important_variable
+    image_open = Image.open(parent_path / 'results' / theme_name / 'tmp_importances.png')
+    image_important_variable = ImageTk.PhotoImage(image_open, master=frame2)
 
-        canvas_important_variable.create_image(int(photo_size/2),int(photo_size/2), image=image_important_variable)
+    canvas_important_variable.create_image(int(photo_size/2),int(photo_size/2), image=image_important_variable)
 
 
 
-        global image_correlation_coefficient
+    global image_correlation_coefficient
 
-        img3 = Image.open(parent_path / 'results' / theme_name / 'correlation_coefficient.png')
-        img3_resize = img3.resize((photo_size, photo_size), Image.LANCZOS)
-        img3_resize.save(parent_path / 'results' / theme_name / 'correlation_coefficient.png')
-        image_open = Image.open(parent_path / 'results' / theme_name / 'correlation_coefficient.png')
+    img3 = Image.open(parent_path / 'results' / theme_name / 'correlation_coefficient.png')
+    img3_resize = img3.resize((photo_size, photo_size), Image.LANCZOS)
+    img3_resize.save(parent_path / 'results' / theme_name / 'correlation_coefficient.png')
+    image_open = Image.open(parent_path / 'results' / theme_name / 'correlation_coefficient.png')
 
-        image_correlation_coefficient = ImageTk.PhotoImage(image_open, master=frame2)
+    image_correlation_coefficient = ImageTk.PhotoImage(image_open, master=frame2)
 
-        canvas_correlation_coefficient.create_image(int(photo_size/2),int(photo_size/2), image=image_correlation_coefficient)
+    canvas_correlation_coefficient.create_image(int(photo_size/2),int(photo_size/2), image=image_correlation_coefficient)
 
 
-        chkprint(importances)
-        importances_sort    = importances.argsort()[::-1]
-        split_base          = np.array([15,13,9,4,4,3,3,3]) # max:758160
-        #split_base          = np.array([10,7,3,3,3,3,3,3])  # max:51030
+    chkprint(importances)
+    importances_sort    = importances.argsort()[::-1]
+    split_base          = np.array([15,13,9,4,4,3,3,3])  # max:758160 #1番重要な特徴量を15分割する設定
+    #split_base          = np.array([10,7,3,3,3,3,3,3])  # max:51030
 
-        # set the split num from importances rank of random forest regressor
-        split_num   = np.full(len(importances_sort),1)
-        for i in range(min(len(importances),8)):
-            rank_ = importances_sort[i]
-            split_num[rank_] = split_base[i]
+    # set the split num from importances rank of random forest regressor
+    split_num   = np.full(len(importances_sort),1)
+    for i in range(min(len(importances),8)):
+        rank_ = importances_sort[i]
+        split_num[rank_] = split_base[i] #何分割するかを各説明変数ごとに設定
 
-        def combination(max, min, split_num):
-            candidate = []
-            for i in range(list_num[in_n]):
-                candidate.append(np.linspace(start = max[i], stop = min[i], num = split_num[i]))
+    def combination(max, min, split_num):
+        candidate = []
+        for i in range(list_num[in_n]):
+            candidate.append(np.linspace(start = max[i], stop = min[i], num = split_num[i])) #分割を実行
 
-            candidate = np.array(candidate)
-            return candidate
+        candidate = np.array(candidate)
+        return candidate
+
+    if is_gridsearch == True: #gridsearch用の候補gridsearch_input_XXX_dfを作成
+        all_gridsearch_number = split_num.prod()
+        candidate = combination(list_raw_max[in_n], list_raw_min[in_n], split_num)
+
+        # refer from https://teratail.com/questions/152110
+        # unpack   *candidate
+        gridsearch_input_raw    = list(itertools.product(*candidate)) #全ての組み合わせを抽出 https://note.nkmk.me/python-itertools-product/
+
+        max_candidate = 1000000
+        gridsearch_input_raw    = gridsearch_input_raw[:min(len(gridsearch_input_raw), max_candidate)]
+
+        print('total number of  gridsearch candidates : ', len(gridsearch_input_raw))
+
+        gridsearch_input_std    = list_sc_model[in_n].transform(gridsearch_input_raw)
+
+        gridsearch_input_raw_df = pd.DataFrame(gridsearch_input_raw, columns = list_feature_names[in_n])
+        gridsearch_input_std_df = pd.DataFrame(gridsearch_input_std, columns = list_feature_names[in_n])
+
+
+    n_trials= 2 + Booleanvar_optuna_sklearn.get()*77
+
+
+    ##################### Linear Regression #####################
+
+    model = linear_model.LinearRegression()
+    model_name = 'Linear_Regression_'
+
+    model_raw, model_std = fit_model_std_raw(model, model_name)
+    model_name = 'Linear'
+    save_summary(model_raw, model_std, model_name)
+
+    model_raw, model_std = save_regression(model_raw, model_std, model_name)
+
+    if is_gridsearch == True:
+        gridsearch_predict(model_raw, model_std, model_name)
+
+    ##################### Theil–Sen #####################
+
+    model = MultiOutputRegressor(linear_model.TheilSenRegressor())
+    model_name = 'TheilSen_'
+
+    model_raw, model_std = fit_model_std_raw(model, model_name)
+    LinearRegression_model = model
+    LinearRegression_model_name = model_name
+    model_name = 'TheilSen'
+
+    save_summary(model_raw, model_std, model_name)
+
+    model_raw, model_std = save_regression(model_raw, model_std, model_name)
+
+    if is_gridsearch == True:
+        gridsearch_predict(model_raw, model_std, model_name)
+
+    ##################### Regression of Stochastic Gradient Descent #####################
+    max_iter = 1000
+
+    model = MultiOutputRegressor(linear_model.SGDRegressor(max_iter = max_iter))
+    model_name = 'MO_SGD_'
+    model_name += 'max_i_'+str(max_iter)
+
+    model_raw, model_std = fit_model_std_raw(model, model_name)
+    Multi_SGD_model = model
+    Multi_SGD_model_name = model_name
+    model_name = 'MO-SGD'
+    save_summary(model_raw, model_std, model_name)
+
+    model_raw, model_std = save_regression(model_raw, model_std, model_name)
+
+    if is_gridsearch == True:
+        gridsearch_predict(model_raw, model_std, model_name)
+
+    ##################### Regression of SVR #####################
+
+    kernel_ = ['rbf']
+    C_= [0.1, 1, 100]
+
+    for kernel_, C_ in itertools.product(kernel_, C_):
+        model = MultiOutputRegressor(svm.SVR(kernel = kernel_, C = C_))
+        model_name = 'MO_SVR_'
+        model_name += '_k_'+str(kernel_)
+        model_name += '_C_'+str(C_)
+
+        model_raw, model_std = fit_model_std_raw(model, model_name)
+
+
+    def objective_svr(trial):
+        svr_c = trial.suggest_loguniform('svr_c', 1e-2, 1e6)
+        epsilon = trial.suggest_loguniform('epsilon', 1e-7, 1e7)
+        svr = MultiOutputRegressor(svm.SVR(kernel = 'rbf', C = svr_c, epsilon=epsilon))
+        svr.fit(list_train_raw[in_n], list_train_raw[out_n])
+        y_pred = svr.predict(list_val_raw[in_n])
+
+        return mean_squared_error(list_val_raw[out_n], y_pred)
+
+    study = optuna.create_study()
+    study.optimize(objective_svr, n_trials=n_trials)
+
+    for kernel_, C_, epsilon in [('rbf', study.best_params['svr_c'], study.best_params['epsilon'])]:
+        model = MultiOutputRegressor(svm.SVR(kernel = kernel_, C = C_, epsilon = epsilon))
+        model_name = 'MO_SVR_best_'
+        model_name += '_k_'+str(kernel_)
+        model_name += '_C_'+str(np.round(C_,2))
+        model_name += '_e_'+str(np.round(epsilon,2))
+
+        model_raw, model_std = fit_model_std_raw(model, model_name)
+
+        model_name = 'SVR'
+        save_summary(model_raw, model_std, model_name)
+
+        model_raw, model_std = save_regression(model_raw, model_std, model_name)
 
         if is_gridsearch == True:
-            all_gridsearch_number = split_num.prod()
-            candidate = combination(list_raw_max[in_n], list_raw_min[in_n], split_num)
-
-            # refer from https://teratail.com/questions/152110
-            # unpack   *candidate
-            gridsearch_input_raw    = list(itertools.product(*candidate))
-            #print(gridsearch_input_raw)
-            gridsearch_input_std    = list_sc_model[in_n].transform(gridsearch_input_raw)
-
-            gridsearch_input_raw_df = pd.DataFrame(gridsearch_input_raw, columns = list_feature_names[in_n])
-            gridsearch_input_std_df = pd.DataFrame(gridsearch_input_std, columns = list_feature_names[in_n])
+            gridsearch_predict(model_raw, model_std, model_name)
 
 
-        n_trials= 2 + Booleanvar_optuna_sklearn.get()*77
+    # refer https://www.slideshare.net/ShinyaShimizu/ss-11623505
 
-
-        ##################### Linear Regression #####################
-
-        model = linear_model.LinearRegression()
-        model_name = 'Linear_Regression_'
+    ##################### Regression of Ridge #####################
+    for alpha in [0.01, 0.1, 1.0] :
+        model = linear_model.Ridge(alpha = alpha)
+        model_name = 'Ridge_'
+        model_name += 'a_'+str(alpha)
 
         model_raw, model_std = fit_model_std_raw(model, model_name)
-        model_name = 'Linear'
+
+    def objective_ridge(trial):
+        alpha = trial.suggest_loguniform('alpha', 1e-2, 1e6)
+
+        model = linear_model.Ridge(alpha = alpha)
+        model.fit(list_train_raw[in_n], list_train_raw[out_n])
+        y_pred = model.predict(list_val_raw[in_n])
+
+        return mean_squared_error(list_val_raw[out_n], y_pred)
+
+    study = optuna.create_study()
+    study.optimize(objective_ridge, n_trials=n_trials)
+
+    for alpha in [(study.best_params['alpha'])]:
+        model = linear_model.Ridge(alpha = alpha)
+        model_name = 'Ridge_best_'
+        model_name += 'a_'+str(np.round(alpha,2))
+
+        model_raw, model_std = fit_model_std_raw(model, model_name)
+        model_name = 'Ridge'
         save_summary(model_raw, model_std, model_name)
 
-        ##################### heil–Sen #####################
+        model_raw, model_std = save_regression(model_raw, model_std, model_name)
 
-        model = MultiOutputRegressor(linear_model.TheilSenRegressor())
-        model_name = 'TheilSen_'
+        if is_gridsearch == True:
+            gridsearch_predict(model_raw, model_std, model_name)
+
+    ##################### Regression of KernelRidge #####################
+    for alpha in [0.01, 1.0 ,100]:
+        model = KernelRidge(alpha=alpha, kernel='rbf')
+        model_name = 'KRidge_'
+        model_name += 'a_'+str(alpha)
 
         model_raw, model_std = fit_model_std_raw(model, model_name)
-        LinearRegression_model = model
-        LinearRegression_model_name = model_name
-        model_name = 'TheilSen'
 
+
+    def objective_kridge(trial):
+        alpha = trial.suggest_loguniform('alpha', 1e-2, 1e4)
+
+        model = KernelRidge(alpha=alpha, kernel='rbf')
+        model.fit(list_train_raw[in_n], list_train_raw[out_n])
+        y_pred = model.predict(list_val_raw[in_n])
+
+        return mean_squared_error(list_val_raw[out_n], y_pred)
+
+    study = optuna.create_study()
+    study.optimize(objective_kridge, n_trials=n_trials)
+
+    for alpha in [(study.best_params['alpha'])]:
+        model = linear_model.Ridge(alpha = alpha)
+        model_name = 'KRidge_best_'
+        model_name += 'a_'+str(np.round(alpha,2))
+
+        model_raw, model_std = fit_model_std_raw(model, model_name)
+        model_name = 'KRidge'
         save_summary(model_raw, model_std, model_name)
 
-        ##################### Regression of Stochastic Gradient Descent #####################
-        max_iter = 1000
+        model_raw, model_std = save_regression(model_raw, model_std, model_name)
 
-        model = MultiOutputRegressor(linear_model.SGDRegressor(max_iter = max_iter))
-        model_name = 'MO_SGD_'
-        model_name += 'max_i_'+str(max_iter)
+        if is_gridsearch == True:
+            gridsearch_predict(model_raw, model_std, model_name)
+
+
+    ##################### Regression of Lasso #####################
+    for alpha in [0.01, 0.1, 1.0]:
+        model = linear_model.Lasso(alpha = alpha)
+        model_name = 'Lasso_'
+        model_name += 'a_'+str(alpha)
 
         model_raw, model_std = fit_model_std_raw(model, model_name)
-        Multi_SGD_model = model
-        Multi_SGD_model_name = model_name
-        model_name = 'MO-SGD'
+
+    def objective_lasso(trial):
+        alpha = trial.suggest_loguniform('alpha', 1e-2, 1e4)
+
+        model = linear_model.Lasso(alpha = alpha)
+        model.fit(list_train_raw[in_n], list_train_raw[out_n])
+        y_pred = model.predict(list_val_raw[in_n])
+
+        return mean_squared_error(list_val_raw[out_n], y_pred)
+
+    study = optuna.create_study()
+    study.optimize(objective_lasso, n_trials=n_trials)
+
+    for alpha in [(study.best_params['alpha'])]:
+        model = linear_model.Lasso(alpha = alpha)
+        model_name = 'Lasso_best_'
+        model_name += 'a_'+str(np.round(alpha,2))
+
+        model_raw, model_std = fit_model_std_raw(model, model_name)
+        model_name = 'Lasso'
         save_summary(model_raw, model_std, model_name)
-        ##################### Regression of SVR #####################
 
-        kernel_ = ['rbf']
-        C_= [0.1, 1, 100]
+        model_raw, model_std = save_regression(model_raw, model_std, model_name)
 
-        for kernel_, C_ in itertools.product(kernel_, C_):
-            model = MultiOutputRegressor(svm.SVR(kernel = kernel_, C = C_))
-            model_name = 'MO_SVR_'
-            model_name += '_k_'+str(kernel_)
-            model_name += '_C_'+str(C_)
-
-            model_raw, model_std = fit_model_std_raw(model, model_name)
+        if is_gridsearch == True:
+            gridsearch_predict(model_raw, model_std, model_name)
 
 
-        def objective_svr(trial):
-            svr_c = trial.suggest_loguniform('svr_c', 1e-2, 1e6)
-            epsilon = trial.suggest_loguniform('epsilon', 1e-7, 1e7)
-            svr = MultiOutputRegressor(svm.SVR(kernel = 'rbf', C = svr_c, epsilon=epsilon))
-            svr.fit(list_train_raw[in_n], list_train_raw[out_n])
-            y_pred = svr.predict(list_val_raw[in_n])
+    ##################### Regression of Elastic Net #####################
 
-            return mean_squared_error(list_val_raw[out_n], y_pred)
+    alpha      = [0.01, 0.1]
+    l1_ratio   = [0.25, 0.75]
 
-        study = optuna.create_study()
-        study.optimize(objective_svr, n_trials=n_trials)
+    for alpha, l1_ratio in itertools.product(alpha, l1_ratio):
 
-        for kernel_, C_, epsilon in [('rbf', study.best_params['svr_c'], study.best_params['epsilon'])]:
-            model = MultiOutputRegressor(svm.SVR(kernel = kernel_, C = C_, epsilon = epsilon))
-            model_name = 'MO_SVR_best_'
-            model_name += '_k_'+str(kernel_)
-            model_name += '_C_'+str(np.round(C_,2))
-            model_name += '_e_'+str(np.round(epsilon,2))
-
-            model_raw, model_std = fit_model_std_raw(model, model_name)
-
-            model_name = 'SVR'
-            save_summary(model_raw, model_std, model_name)
-
-
-        # refer https://www.slideshare.net/ShinyaShimizu/ss-11623505
-
-        ##################### Regression of Ridge #####################
-        for alpha in [0.01, 0.1, 1.0] :
-            model = linear_model.Ridge(alpha = alpha)
-            model_name = 'Ridge_'
-            model_name += 'a_'+str(alpha)
-
-            model_raw, model_std = fit_model_std_raw(model, model_name)
-
-        def objective_ridge(trial):
-            alpha = trial.suggest_loguniform('alpha', 1e0, 1e6)
-
-            model = linear_model.Ridge(alpha = alpha)
-            model.fit(list_train_raw[in_n], list_train_raw[out_n])
-            y_pred = model.predict(list_val_raw[in_n])
-
-            return mean_squared_error(list_val_raw[out_n], y_pred)
-
-        study = optuna.create_study()
-        study.optimize(objective_ridge, n_trials=n_trials)
-
-        for alpha in [(study.best_params['alpha'])]:
-            model = linear_model.Ridge(alpha = alpha)
-            model_name = 'Ridge_best_'
-            model_name += 'a_'+str(np.round(alpha,2))
-
-            model_raw, model_std = fit_model_std_raw(model, model_name)
-            model_name = 'Ridge'
-            save_summary(model_raw, model_std, model_name)
-
-        ##################### Regression of KernelRidge #####################
-        for alpha in [0.01, 1.0 ,100]:
-            model = KernelRidge(alpha=alpha, kernel='rbf')
-            model_name = 'KRidge_'
-            model_name += 'a_'+str(alpha)
-
-            model_raw, model_std = fit_model_std_raw(model, model_name)
-
-
-        def objective_kridge(trial):
-            alpha = trial.suggest_loguniform('alpha', 1e0, 1e4)
-
-            model = KernelRidge(alpha=alpha, kernel='rbf')
-            model.fit(list_train_raw[in_n], list_train_raw[out_n])
-            y_pred = model.predict(list_val_raw[in_n])
-
-            return mean_squared_error(list_val_raw[out_n], y_pred)
-
-        study = optuna.create_study()
-        study.optimize(objective_kridge, n_trials=n_trials)
-
-        for alpha in [(study.best_params['alpha'])]:
-            model = linear_model.Ridge(alpha = alpha)
-            model_name = 'KRidge_best_'
-            model_name += 'a_'+str(np.round(alpha,2))
-
-            model_raw, model_std = fit_model_std_raw(model, model_name)
-            model_name = 'KRidge'
-            save_summary(model_raw, model_std, model_name)
-
-
-        ##################### Regression of Lasso #####################
-        for alpha in [0.01, 0.1, 1.0]:
-            model = linear_model.Lasso(alpha = alpha)
-            model_name = 'Lasso_'
-            model_name += 'a_'+str(alpha)
-
-            model_raw, model_std = fit_model_std_raw(model, model_name)
-
-        def objective_lasso(trial):
-            alpha = trial.suggest_loguniform('alpha', 1e0, 1e4)
-
-            model = linear_model.Lasso(alpha = alpha)
-            model.fit(list_train_raw[in_n], list_train_raw[out_n])
-            y_pred = model.predict(list_val_raw[in_n])
-
-            return mean_squared_error(list_val_raw[out_n], y_pred)
-
-        study = optuna.create_study()
-        study.optimize(objective_lasso, n_trials=n_trials)
-
-        for alpha in [(study.best_params['alpha'])]:
-            model = linear_model.Lasso(alpha = alpha)
-            model_name = 'Lasso_best_'
-            model_name += 'a_'+str(np.round(alpha,2))
-
-            model_raw, model_std = fit_model_std_raw(model, model_name)
-            model_name = 'Lasso'
-            save_summary(model_raw, model_std, model_name)
-
-
-        ##################### Regression of Elastic Net #####################
-
-        alpha      = [0.01, 0.1]
-        l1_ratio   = [0.25, 0.75]
-
-        for alpha, l1_ratio in itertools.product(alpha, l1_ratio):
-
-            model = linear_model.ElasticNet(alpha=alpha, l1_ratio=l1_ratio)
-            model_name = 'ENet_'
-            model_name += 'a_'+str(alpha)
-            model_name += 'l1_r_'+str(l1_ratio)
-
-            model_raw, model_std = fit_model_std_raw(model, model_name)
-
-        def objective_enet(trial):
-            alpha = trial.suggest_loguniform('alpha', 1e0, 1e4)
-            l1_ratio = trial.suggest_uniform('l1_ratio', 0, 1)
-
-            model = linear_model.ElasticNet(alpha=alpha, l1_ratio = l1_ratio)
-            model.fit(list_train_raw[in_n], list_train_raw[out_n])
-            y_pred = model.predict(list_val_raw[in_n])
-
-            return mean_squared_error(list_val_raw[out_n], y_pred)
-
-        study = optuna.create_study()
-        study.optimize(objective_enet, n_trials=n_trials)
-
-
-        for alpha, l1_ratio in [(study.best_params['alpha'], study.best_params['l1_ratio'])]:
-            model = linear_model.ElasticNet(alpha=alpha, l1_ratio=l1_ratio)
-            model_name = 'ENet_best_'
-            model_name += 'a_'+str(np.round(alpha,2))
-            model_name += 'l1_r_'+str(np.round(l1_ratio,2))
-
-            model_raw, model_std = fit_model_std_raw(model, model_name)
-            model_name = 'EN'
-            save_summary(model_raw, model_std, model_name)
-
-
-        ##################### Regression of MultiTaskLassoCV #####################
-        max_iter_ = 1000
-
-        model = linear_model.MultiTaskLassoCV()
-        model_name = 'MT-Lasso_'
-        model_name += 'max_i_'+str(max_iter)
+        model = linear_model.ElasticNet(alpha=alpha, l1_ratio=l1_ratio)
+        model_name = 'ENet_'
+        model_name += 'a_'+str(alpha)
+        model_name += 'l1_r_'+str(l1_ratio)
 
         model_raw, model_std = fit_model_std_raw(model, model_name)
 
-        ##################### Regression of Multi Task Elastic Net CV #####################
-        model = linear_model.MultiTaskElasticNetCV()
+    def objective_enet(trial):
+        alpha = trial.suggest_loguniform('alpha', 1e-2, 1e4)
+        l1_ratio = trial.suggest_uniform('l1_ratio', 0, 1)
 
-        model_name = 'MT-ENet_'
+        model = linear_model.ElasticNet(alpha=alpha, l1_ratio = l1_ratio)
+        model.fit(list_train_raw[in_n], list_train_raw[out_n])
+        y_pred = model.predict(list_val_raw[in_n])
+
+        return mean_squared_error(list_val_raw[out_n], y_pred)
+
+    study = optuna.create_study()
+    study.optimize(objective_enet, n_trials=n_trials)
+
+
+    for alpha, l1_ratio in [(study.best_params['alpha'], study.best_params['l1_ratio'])]:
+        model = linear_model.ElasticNet(alpha=alpha, l1_ratio=l1_ratio)
+        model_name = 'ENet_best_'
+        model_name += 'a_'+str(np.round(alpha,2))
+        model_name += 'l1_r_'+str(np.round(l1_ratio,2))
+
         model_raw, model_std = fit_model_std_raw(model, model_name)
+        model_name = 'EN'
+        save_summary(model_raw, model_std, model_name)
 
-        ##################### Regression of OrthogonalMatchingPursuit #####################
-        #model = linear_model.OrthogonalMatchingPursuit()
-        #model_name = 'OrthogonalMatchingPursuit_'
+        model_raw, model_std = save_regression(model_raw, model_std, model_name)
 
-        #model_raw, model_std = fit_model_std_raw(model, model_name)
-
-        ##################### Regression of BayesianRidge #####################
-        model = MultiOutputRegressor(linear_model.BayesianRidge())
-        model_name = 'MO_BRidge_'
-
-        model_raw, model_std = fit_model_std_raw(model, model_name)
+        if is_gridsearch == True:
+            gridsearch_predict(model_raw, model_std, model_name)
 
 
-        def objective_bridge(trial):
-            alpha_1 = trial.suggest_loguniform('alpha_1', 1e-8, 1e-4)
-            alpha_2 = trial.suggest_loguniform('alpha_2', 1e-8, 1e-4)
-            lambda_1 = trial.suggest_loguniform('lambda_1', 1e-8, 1e-4)
-            lambda_2 = trial.suggest_loguniform('lambda_2', 1e-8, 1e-4)
+    ##################### Regression of MultiTaskLassoCV #####################
+    max_iter_ = 1000
 
-            model = MultiOutputRegressor(
-                        linear_model.BayesianRidge(
+    model = linear_model.MultiTaskLassoCV()
+    model_name = 'MT-Lasso_'
+    model_name += 'max_i_'+str(max_iter)
+
+    model_raw, model_std = fit_model_std_raw(model, model_name)
+
+    model_raw, model_std = save_regression(model_raw, model_std, model_name)
+
+    if is_gridsearch == True:
+        gridsearch_predict(model_raw, model_std, model_name)
+
+    ##################### Regression of Multi Task Elastic Net CV #####################
+    model = linear_model.MultiTaskElasticNetCV()
+
+    model_name = 'MT-ENet_'
+    model_raw, model_std = fit_model_std_raw(model, model_name)
+
+    model_raw, model_std = save_regression(model_raw, model_std, model_name)
+
+    if is_gridsearch == True:
+        gridsearch_predict(model_raw, model_std, model_name)
+
+    ##################### Regression of OrthogonalMatchingPursuit #####################
+    #model = linear_model.OrthogonalMatchingPursuit()
+    #model_name = 'OrthogonalMatchingPursuit_'
+
+    #model_raw, model_std = fit_model_std_raw(model, model_name)
+
+    ##################### Regression of BayesianRidge #####################
+    model = MultiOutputRegressor(linear_model.BayesianRidge())
+    model_name = 'MO_BRidge_'
+
+    model_raw, model_std = fit_model_std_raw(model, model_name)
+
+
+    def objective_bridge(trial):
+        alpha_1 = trial.suggest_loguniform('alpha_1', 1e-8, 1e-4)
+        alpha_2 = trial.suggest_loguniform('alpha_2', 1e-8, 1e-4)
+        lambda_1 = trial.suggest_loguniform('lambda_1', 1e-8, 1e-4)
+        lambda_2 = trial.suggest_loguniform('lambda_2', 1e-8, 1e-4)
+
+        model = MultiOutputRegressor(
+                    linear_model.BayesianRidge(
+                                    alpha_1=alpha_1,
+                                    alpha_2=alpha_2,
+                                    lambda_1=lambda_1,
+                                    lambda_2=lambda_2,
+                                    ))
+        model.fit(list_train_raw[in_n], list_train_raw[out_n])
+        y_pred = model.predict(list_val_raw[in_n])
+
+        return mean_squared_error(list_val_raw[out_n], y_pred)
+
+    study = optuna.create_study()
+    study.optimize(objective_bridge, n_trials=n_trials)
+
+    for alpha_1, alpha_2, lambda_1, lambda_2 in [(
+                                                            study.best_params['alpha_1'],
+                                                            study.best_params['alpha_2'],
+                                                            study.best_params['lambda_1'],
+                                                            study.best_params['lambda_2']
+                                                            )]:
+        model = MultiOutputRegressor(
+                                    linear_model.BayesianRidge(
+                                        n_iter=300,
+                                        tol=0.001,
                                         alpha_1=alpha_1,
                                         alpha_2=alpha_2,
                                         lambda_1=lambda_1,
-                                        lambda_2=lambda_2,
+                                        lambda_2=lambda_2
                                         ))
-            model.fit(list_train_raw[in_n], list_train_raw[out_n])
-            y_pred = model.predict(list_val_raw[in_n])
+        model_name = 'MO_BRidge_best'
+        model_name += '_a1_'+str(np.round(np.log(alpha_1),1))
+        model_name += '_a2_'+str(np.round(np.log(alpha_2),1))
+        model_name += '_l1_'+str(np.round(np.log(lambda_1),1))
+        model_name += '_l2_'+str(np.round(np.log(lambda_2),1))
+        model_raw, model_std = fit_model_std_raw(model, model_name)
+        model_name = 'BRidge'
+        save_summary(model_raw, model_std, model_name)
 
-            return mean_squared_error(list_val_raw[out_n], y_pred)
+        model_raw, model_std = save_regression(model_raw, model_std, model_name)
 
-        study = optuna.create_study()
-        study.optimize(objective_bridge, n_trials=n_trials)
-
-        for alpha_1, alpha_2, lambda_1, lambda_2 in [(
-                                                              study.best_params['alpha_1'],
-                                                              study.best_params['alpha_2'],
-                                                              study.best_params['lambda_1'],
-                                                              study.best_params['lambda_2']
-                                                              )]:
-            model = MultiOutputRegressor(
-                                        linear_model.BayesianRidge(
-                                            n_iter=300,
-                                            tol=0.001,
-                                            alpha_1=alpha_1,
-                                            alpha_2=alpha_2,
-                                            lambda_1=lambda_1,
-                                            lambda_2=lambda_2
-                                            ))
-            model_name = 'MO_BRidge_best'
-            model_name += '_a1_'+str(np.round(np.log(alpha_1),1))
-            model_name += '_a2_'+str(np.round(np.log(alpha_2),1))
-            model_name += '_l1_'+str(np.round(np.log(lambda_1),1))
-            model_name += '_l2_'+str(np.round(np.log(lambda_2),1))
-            model_raw, model_std = fit_model_std_raw(model, model_name)
-            model_name = 'BRidge'
-            save_summary(model_raw, model_std, model_name)
+        if is_gridsearch == True:
+            gridsearch_predict(model_raw, model_std, model_name)
 
 
 
-        ##################### Regression of GaussianProcessRegressor #####################
-        from sklearn.gaussian_process import GaussianProcessRegressor
+    ##################### Regression of GaussianProcessRegressor #####################
+    from sklearn.gaussian_process import GaussianProcessRegressor
 
-        model = MultiOutputRegressor(GaussianProcessRegressor())
-        model_name = 'MO-GPR_'
+    model = MultiOutputRegressor(GaussianProcessRegressor())
+    model_name = 'MO-GPR_'
+
+    model_raw, model_std = fit_model_std_raw(model, model_name)
+
+    def objective_gpr(trial):
+        alpha = trial.suggest_loguniform('alpha', 1e-14, 1e-6)
+
+        model = MultiOutputRegressor(GaussianProcessRegressor(alpha=alpha))
+        model.fit(list_train_raw[in_n], list_train_raw[out_n])
+        y_pred = model.predict(list_val_raw[in_n])
+
+        return mean_squared_error(list_val_raw[out_n], y_pred)
+
+    study = optuna.create_study()
+    study.optimize(objective_gpr, n_trials=n_trials)
+
+    # 最適解
+    print(study.best_params)
+    print(study.best_value)
+    print(study.best_trial)
+
+    for alpha in           [(
+                            study.best_params['alpha']
+                            )]:
+        model = MultiOutputRegressor(GaussianProcessRegressor(alpha=alpha))
+        model_name = 'MO-GPR_best'
+        model_name += '_a_'+str(np.round(np.log(alpha),2))
+        model_raw, model_std = fit_model_std_raw(model, model_name)
+        model_name = 'GPR'
+        save_summary(model_raw, model_std, model_name)
+
+        model_raw, model_std = save_regression(model_raw, model_std, model_name)
+
+        if is_gridsearch == True:
+            gridsearch_predict(model_raw, model_std, model_name)
+
+
+    ##################### Regression of DecisionTreeRegressor #####################
+
+    for max_depth in [7,10]:
+        model = sklearn.tree.DecisionTreeRegressor(max_depth = max_depth)
+        model_name = 'Tree_'
+        model_name += 'max_d_'+str(max_depth)
 
         model_raw, model_std = fit_model_std_raw(model, model_name)
 
-        def objective_gpr(trial):
-            alpha = trial.suggest_loguniform('alpha', 1e-14, 1e-6)
 
-            model = MultiOutputRegressor(GaussianProcessRegressor(alpha=alpha))
-            model.fit(list_train_raw[in_n], list_train_raw[out_n])
-            y_pred = model.predict(list_val_raw[in_n])
+    def objective_dtr(trial):
+        max_depth = trial.suggest_int('max_depth', 2, 13)
 
-            return mean_squared_error(list_val_raw[out_n], y_pred)
+        model = sklearn.tree.DecisionTreeRegressor(max_depth = max_depth)
+        model.fit(list_train_raw[in_n], list_train_raw[out_n])
+        y_pred = model.predict(list_val_raw[in_n])
 
-        study = optuna.create_study()
-        study.optimize(objective_gpr, n_trials=n_trials)
+        return mean_squared_error(list_val_raw[out_n], y_pred)
 
-        # 最適解
-        print(study.best_params)
-        print(study.best_value)
-        print(study.best_trial)
+    study = optuna.create_study()
+    study.optimize(objective_dtr, n_trials=n_trials)
 
-        for alpha in           [(
-                                study.best_params['alpha']
-                                )]:
-            model = MultiOutputRegressor(GaussianProcessRegressor(alpha=alpha))
-            model_name = 'MO-GPR_best'
-            model_name += '_a_'+str(np.round(np.log(alpha),2))
-            model_raw, model_std = fit_model_std_raw(model, model_name)
-            model_name = 'GPR'
-            save_summary(model_raw, model_std, model_name)
+    # 最適解
+    print(study.best_params)
+    print(study.best_value)
+    print(study.best_trial)
 
+    for alpha in           [(
+                            study.best_params['max_depth']
+                            )]:
+        model = sklearn.tree.DecisionTreeRegressor(max_depth = max_depth)
+        model_name = 'Tree_best_'
+        model_name += 'max_d_'+str(max_depth)
+        model_raw, model_std = fit_model_std_raw(model, model_name)
+        model_name = 'DTR'
+        save_summary(model_raw, model_std, model_name)
 
-        ##################### Regression of DecisionTreeRegressor #####################
+        model_raw, model_std = save_regression(model_raw, model_std, model_name)
 
-        for max_depth in [7,10]:
-            model = sklearn.tree.DecisionTreeRegressor(max_depth = max_depth)
-            model_name = 'Tree_'
-            model_name += 'max_d_'+str(max_depth)
+        if is_gridsearch == True:
+            gridsearch_predict(model_raw, model_std, model_name)
 
-            model_raw, model_std = fit_model_std_raw(model, model_name)
 
 
-        def objective_dtr(trial):
-            max_depth = trial.suggest_int('max_depth', 2, 13)
+    ##################### Regression of Multioutput DecisionTreeRegressor #####################
+    tmp_r2_score = 0
+    for max_depth in [3,5,9]:
 
-            model = sklearn.tree.DecisionTreeRegressor(max_depth = max_depth)
-            model.fit(list_train_raw[in_n], list_train_raw[out_n])
-            y_pred = model.predict(list_val_raw[in_n])
+        model = MultiOutputRegressor(sklearn.tree.DecisionTreeRegressor(max_depth = max_depth))
+        model_name = 'MO_Tree_'
+        model_name += 'max_d_' + str(max_depth)
+        model_raw, model_std = fit_model_std_raw(model, model_name)
 
-            return mean_squared_error(list_val_raw[out_n], y_pred)
+    def objective_modtr(trial):
+        max_depth = trial.suggest_int('max_depth', 2, 13)
 
-        study = optuna.create_study()
-        study.optimize(objective_dtr, n_trials=n_trials)
+        model = MultiOutputRegressor(sklearn.tree.DecisionTreeRegressor(max_depth = max_depth))
+        model.fit(list_train_raw[in_n], list_train_raw[out_n])
+        y_pred = model.predict(list_val_raw[in_n])
 
-        # 最適解
-        print(study.best_params)
-        print(study.best_value)
-        print(study.best_trial)
+        return mean_squared_error(list_val_raw[out_n], y_pred)
 
-        for alpha in           [(
-                                study.best_params['max_depth']
-                                )]:
-            model = sklearn.tree.DecisionTreeRegressor(max_depth = max_depth)
-            model_name = 'Tree_best_'
-            model_name += 'max_d_'+str(max_depth)
-            model_raw, model_std = fit_model_std_raw(model, model_name)
-            model_name = 'DTR'
-            save_summary(model_raw, model_std, model_name)
+    study = optuna.create_study()
+    study.optimize(objective_modtr, n_trials=n_trials)
 
+    # 最適解
+    print(study.best_params)
+    print(study.best_value)
+    print(study.best_trial)
 
 
+    for alpha in           [(
+                            study.best_params['max_depth']
+                            )]:
+        model = MultiOutputRegressor(sklearn.tree.DecisionTreeRegressor(max_depth = max_depth))
+        model_name = 'MO_Tree_best_'
+        model_name += 'max_d_'+str(max_depth)
+        model_raw, model_std = fit_model_std_raw(model, model_name)
+        model_name = 'M-DTR'
+        save_summary(model_raw, model_std, model_name)
 
+        model_raw, model_std = save_regression(model_raw, model_std, model_name)
 
-        ##################### Regression of Multioutput DecisionTreeRegressor #####################
-        tmp_r2_score = 0
-        for max_depth in [3,5,9]:
+        if is_gridsearch == True:
+            gridsearch_predict(model_raw, model_std, model_name)
 
-            model = MultiOutputRegressor(sklearn.tree.DecisionTreeRegressor(max_depth = max_depth))
-            model_name = 'MO_Tree_'
-            model_name += 'max_d_' + str(max_depth)
-            model_raw, model_std = fit_model_std_raw(model, model_name)
 
-        def objective_modtr(trial):
-            max_depth = trial.suggest_int('max_depth', 2, 13)
+    #################### Regression of RandomForestRegressor #####################
+    for max_depth in [3,5,7,9,11]:
+        model = sklearn.ensemble.RandomForestRegressor(max_depth = max_depth)
+        model_name = ''
+        model_name += 'RandForest_'
+        model_name += 'max_d_'+str(max_depth)
 
-            model = MultiOutputRegressor(sklearn.tree.DecisionTreeRegressor(max_depth = max_depth))
-            model.fit(list_train_raw[in_n], list_train_raw[out_n])
-            y_pred = model.predict(list_val_raw[in_n])
+        model_raw, model_std = fit_model_std_raw(model, model_name)
 
-            return mean_squared_error(list_val_raw[out_n], y_pred)
 
-        study = optuna.create_study()
-        study.optimize(objective_modtr, n_trials=n_trials)
+    def objective_rfr(trial):
+        max_depth = trial.suggest_int('max_depth', 2, 13)
 
-        # 最適解
-        print(study.best_params)
-        print(study.best_value)
-        print(study.best_trial)
+        model = sklearn.ensemble.RandomForestRegressor(max_depth = max_depth)
+        model.fit(list_train_raw[in_n], list_train_raw[out_n])
+        y_pred = model.predict(list_val_raw[in_n])
 
+        return mean_squared_error(list_val_raw[out_n], y_pred)
 
-        for alpha in           [(
-                                study.best_params['max_depth']
-                                )]:
-            model = MultiOutputRegressor(sklearn.tree.DecisionTreeRegressor(max_depth = max_depth))
-            model_name = 'MO_Tree_best_'
-            model_name += 'max_d_'+str(max_depth)
-            model_raw, model_std = fit_model_std_raw(model, model_name)
-            model_name = 'M-DTR'
-            save_summary(model_raw, model_std, model_name)
-
-
-        #################### Regression of RandomForestRegressor #####################
-        for max_depth in [3,5,7,9,11]:
-            model = sklearn.ensemble.RandomForestRegressor(max_depth = max_depth)
-            model_name = ''
-            model_name += 'RandForest_'
-            #model_name += get_variablename(max_depth)
-            model_name += 'max_d_'+str(max_depth)
-
-            model_raw, model_std = fit_model_std_raw(model, model_name)
-
-
-        def objective_rfr(trial):
-            max_depth = trial.suggest_int('max_depth', 2, 13)
-
-            model = sklearn.ensemble.RandomForestRegressor(max_depth = max_depth)
-            model.fit(list_train_raw[in_n], list_train_raw[out_n])
-            y_pred = model.predict(list_val_raw[in_n])
-
-            return mean_squared_error(list_val_raw[out_n], y_pred)
-
-        study = optuna.create_study()
-        study.optimize(objective_rfr, n_trials=n_trials)
-
-        # 最適解
-        print(study.best_params)
-        print(study.best_value)
-        print(study.best_trial)
-
-        for alpha in           [(
-                                study.best_params['max_depth']
-                                )]:
-            model = sklearn.ensemble.RandomForestRegressor(max_depth = max_depth)
-            model_name = 'RandForest_best_'
-            model_name += 'max_d_'+str(max_depth)
-            model_raw, model_std = fit_model_std_raw(model, model_name)
-            model_name = 'RFR'
-            save_summary(model_raw, model_std, model_name)
-
-
-
-        ##################### Regression of XGBoost #####################
-        # refer from https://github.com/FelixNeutatz/ED2/blob/23170b05c7c800e2d2e2cf80d62703ee540d2bcb/src/model/ml/CellPredict.py
-
-        min_child_weight = [5] #1,3
-        subsample        = [0.9] #0.7, 0.8,
-        learning_rate    = [0.1,0.01] #0.1
-        max_depth        = [7]
-        n_estimators      = [100]
-
-        tmp_r2_score = 0
-        for min_child_weight, subsample, learning_rate, max_depth, n_estimators \
-            in itertools.product(min_child_weight, subsample, learning_rate, max_depth, n_estimators):
-
-            xgb_params = {'estimator__min_child_weight': min_child_weight,
-                          'estimator__subsample': subsample,
-                          'estimator__learning_rate': learning_rate,
-                          'estimator__max_depth': max_depth,
-                          'estimator__n_estimators': n_estimators,
-                          'colsample_bytree': 0.8,
-                          'silent': 1,
-                          'seed': 0,
-                          'objective': 'reg:linear'}
-
-            model = MultiOutputRegressor(xgb.XGBRegressor(**xgb_params))
-
-            model_name = 'MO-XGB'
-            model_name += 'm_c_w_'+str(min_child_weight)
-            model_name += 'ss_'+str(subsample)
-            model_name += 'l_r_'+str(learning_rate)
-            model_name += 'm_d_'+str(max_depth)
-            model_name += 'n_es_'+str(n_estimators)
-
-            model_raw, model_std = fit_model_std_raw(model, model_name)
-
-        def objective_xgb(trial):
-
-            min_child_weight = trial.suggest_int('min_child_weight', 1 , 10)
-            subsample        = trial.suggest_uniform('subsample', 0.1, 1.0)
-            learning_rate    = trial.suggest_loguniform('learning_rate', 1e-2, 1e+1)
-            max_depth        = trial.suggest_int('max_depth', 3 , 10)
-            n_estimators     = 100
-
-            xgb_params = {'estimator__min_child_weight': min_child_weight,
-                          'estimator__subsample': subsample,
-                          'estimator__learning_rate': learning_rate,
-                          'estimator__max_depth': max_depth,
-                          'estimator__n_estimators': n_estimators,
-                          'colsample_bytree': 0.8,
-                          'silent': 1,
-                          'seed': 0,
-                          'objective': 'reg:linear'}
-
-
-            model = MultiOutputRegressor(xgb.XGBRegressor(**xgb_params))
-            model.fit(list_train_raw[in_n], list_train_raw[out_n])
-            y_pred = model.predict(list_val_raw[in_n])
-
-            return mean_squared_error(list_val_raw[out_n], y_pred)
-
-        study = optuna.create_study()
-        study.optimize(objective_xgb, n_trials=n_trials)
-
-        for min_child_weight, subsample, learning_rate, max_depth in \
-                                [(
-                                study.best_params['min_child_weight'],
-                                study.best_params['subsample'],
-                                study.best_params['learning_rate'],
-                                study.best_params['max_depth']
-                                )]:
-
-            xgb_params = {'estimator__min_child_weight': min_child_weight,
-                          'estimator__subsample': subsample,
-                          'estimator__learning_rate': learning_rate,
-                          'estimator__max_depth': max_depth,
-                          'estimator__n_estimators': 100,
-                          'colsample_bytree': 0.8,
-                          'silent': 1,
-                          'seed': 0,
-                          'objective': 'reg:linear'}
-
-            model = MultiOutputRegressor(xgb.XGBRegressor(**xgb_params))
-
-            model_name =  'MO-XGB_best'
-            model_name += '_c_wei_'+str(min_child_weight)
-            model_name += '_sam_'+str(np.round(subsample,1))
-            model_name += '_rate_'+str(np.round(np.log(learning_rate),1))
-            model_name += '_dep_'+str(max_depth)
-            model_name += '_n_es_'+str(n_estimators)
-            model_raw, model_std = fit_model_std_raw(model, model_name)
-            model_name = 'XGB'
-            save_summary(model_raw, model_std, model_name)
-
-            save_contour(model_raw, model_name)
-            bayesian_optimization(model_raw, model_name)
-
-
-        ################# to csv ##############################
-        allmodel_results_raw_df.to_csv(os.path.join(parent_path, 'results', theme_name, 'comparison of all_methods_raw.csv'), index=False)
-        allmodel_results_std_df.to_csv(os.path.join(parent_path, 'results', theme_name, 'comparison of all_methods_std.csv'), index=False)
-
-        summary_results_raw_df.to_csv(os.path.join(parent_path, 'results', theme_name, 'summary of methods_raw.csv'), index=False)
-        summary_results_std_df.to_csv(os.path.join(parent_path, 'results', theme_name, 'summary of methods_std.csv'), index=False)
-
-        ################# to photo ##############################
-        # R2 score
-        plt.figure()
-        #https://own-search-and-study.xyz/2016/08/03/pandas%E3%81%AEplot%E3%81%AE%E5%85%A8%E5%BC%95%E6%95%B0%E3%82%92%E4%BD%BF%E3%81%84%E3%81%93%E3%81%AA%E3%81%99/
-        summary_results_std_df.plot(kind='bar', x='model_name', y =['train_model_score', 'test_model_score'], rot=70, figsize=(12,12), fontsize=18, yticks=[0,0.5,1.0], ylim=[0,1.0])
-        plt.savefig(parent_path / 'results' /  theme_name / 'summary_of_score.png', dpi = 240)
-
-        Image.MAX_IMAGE_PIXELS = None
-        img6 = Image.open(parent_path / 'results' / theme_name / 'summary_of_score.png')
-        img6_resize = img6.resize((photo_size, photo_size), Image.LANCZOS)
-        img6_resize.save(parent_path / 'results' / theme_name / 'summary_of_score_resized.png')
-
-        global image_score
-        image_open = Image.open(parent_path / 'results' / theme_name / 'summary_of_score_resized.png')
-        image_score = ImageTk.PhotoImage(image_open, master=frame2)
-
-        canvas_score.create_image(int(photo_size/2),int(photo_size/2), image=image_score)
-
-        if t_bayesian_val.get().isnumeric == True:
-            target_std_value = list_sc_model[out_n].transform(t_bayesian_val.get())
-        else:
-            target_std_value = 'None'
-
-
-        optimize_dic = {0: 'max', 1: 'min', 2:target_std_value}
-
-        optimize_type = var_bayesian.get()
-        print(optimize_dic[optimize_type])
-
-        #allmodel_bayesian_opt_df.to_csv(os.path.join(parent_path, 'results', theme_name, 'bayesian_opt_' +str(optimize_dic[optimize_type])+  '.csv'), index=False)
-        #######################################################
-
-        print('Sklearn finished!')
-
-        '''
-        ################# importances feature by XGBOOST ######
-        import matplotlib.pyplot as plt
-
-        importances = pd.Series(reg1_multigbtree.feature_importances_)
-        importances = importances.sort_values()
-        importances.plot(kind = "barh")
-        plt.title("imporance in the xgboost Model")
-        plt.show()
-        #######################################################
-        '''
-
-        '''
-        ##################### LIME Explainer #####################
-        import lime
-        import lime.lime_tabular
-
-        #explainer1 = lime.lime_tabular.LimeTabularExplainer(train_output, feature_names=input_feature_names, kernel_width=3)
-        0
-        explainer1 = lime.lime_tabular.LimeTabularExplainer(train_input, feature_names= input_feature_names, class_names=output_feature_names, verbose=True, mode='regression')
-
-        np.random.seed(1)
-        i = 3
-        #exp = explainer.explain_instance(test[2], predict_fn, num_features=10)
-        exp = explainer.explain_instance(test[i], reg1_SVR.predict, num_features=5)
-
-        sys.exit()
-        # exp.show_in_notebook(show_all=False)
-        exp.save_to_file(file_path= str(address_) + 'numeric_category_feat_01', show_table=True, show_all=True)
-
-        i = 3
-        exp = explainer.explain_instance(test[i], predict_fn, num_features=10)
-        # exp.show_in_notebook(show_all=False)
-        exp.save_to_file(file_path=str(address_) + 'numeric_category_feat_02', show_table=True, show_all=True)
-        ##########################################################
-        '''
-
-        '''
-        # import pickle
-        # pickle.dump(reg, open("model.pkl", "wb"))
-        # reg = pickle.load(open("model.pkl", "rb"))
-
-        pred1_train = reg1_gbtree.predict(train_input)
-        pred1_test = reg1_gbtree.predict(test_input)
-        #print(mean_squared_error(train_output, pred1_train))
-        #print(mean_squared_error(test_output, pred1_test))
-
-        import matplotlib.pyplot as plt
-
-        importances = pd.Series(reg1_gbtree.feature_importances_)
-        importances = importances.sort_values()
-        importances.plot(kind = "barh")
-        plt.title("imporance in the xgboost Model")
-        plt.show()
-        '''
+    study = optuna.create_study()
+    study.optimize(objective_rfr, n_trials=n_trials)
+
+    # 最適解
+    print(study.best_params)
+    print(study.best_value)
+    print(study.best_trial)
+
+    for alpha in           [(
+                            study.best_params['max_depth']
+                            )]:
+        model = sklearn.ensemble.RandomForestRegressor(max_depth = max_depth)
+        model_name = 'RandForest_best_'
+        model_name += 'max_d_'+str(max_depth)
+        model_raw, model_std = fit_model_std_raw(model, model_name)
+        model_name = 'RFR'
+        save_summary(model_raw, model_std, model_name)
+
+        model_raw, model_std = save_regression(model_raw, model_std, model_name)
+
+        if is_gridsearch == True:
+            gridsearch_predict(model_raw, model_std, model_name)
+
+
+
+    ##################### Regression of XGBoost #####################
+    # refer from https://github.com/FelixNeutatz/ED2/blob/23170b05c7c800e2d2e2cf80d62703ee540d2bcb/src/model/ml/CellPredict.py
+
+    min_child_weight = [5] #1,3
+    subsample        = [0.9] #0.7, 0.8,
+    learning_rate    = [0.1,0.01] #0.1
+    max_depth        = [7]
+    n_estimators      = [100]
+
+    tmp_r2_score = 0
+    for min_child_weight, subsample, learning_rate, max_depth, n_estimators \
+        in itertools.product(min_child_weight, subsample, learning_rate, max_depth, n_estimators):
+
+        xgb_params = {'estimator__min_child_weight': min_child_weight,
+                        'estimator__subsample': subsample,
+                        'estimator__learning_rate': learning_rate,
+                        'estimator__max_depth': max_depth,
+                        'estimator__n_estimators': n_estimators,
+                        'colsample_bytree': 0.8,
+                        'silent': 1,
+                        'seed': 0,
+                        'objective': 'reg:linear'}
+
+        model = MultiOutputRegressor(xgb.XGBRegressor(**xgb_params))
+
+        model_name = 'MO-XGB'
+        model_name += 'm_c_w_'+str(min_child_weight)
+        model_name += 'ss_'+str(subsample)
+        model_name += 'l_r_'+str(learning_rate)
+        model_name += 'm_d_'+str(max_depth)
+        model_name += 'n_es_'+str(n_estimators)
+
+        model_raw, model_std = fit_model_std_raw(model, model_name)
+
+    def objective_xgb(trial):
+
+        min_child_weight = trial.suggest_int('min_child_weight', 1 , 10)
+        subsample        = trial.suggest_uniform('subsample', 0.1, 1.0)
+        learning_rate    = trial.suggest_loguniform('learning_rate', 1e-2, 1e+1)
+        max_depth        = trial.suggest_int('max_depth', 3 , 10)
+        n_estimators     = 100
+
+        xgb_params = {'estimator__min_child_weight': min_child_weight,
+                        'estimator__subsample': subsample,
+                        'estimator__learning_rate': learning_rate,
+                        'estimator__max_depth': max_depth,
+                        'estimator__n_estimators': n_estimators,
+                        'colsample_bytree': 0.8,
+                        'silent': 1,
+                        'seed': 0,
+                        'objective': 'reg:linear'}
+
+
+        model = MultiOutputRegressor(xgb.XGBRegressor(**xgb_params))
+        model.fit(list_train_raw[in_n], list_train_raw[out_n])
+        y_pred = model.predict(list_val_raw[in_n])
+
+        return mean_squared_error(list_val_raw[out_n], y_pred)
+
+    study = optuna.create_study()
+    study.optimize(objective_xgb, n_trials=n_trials)
+
+    for min_child_weight, subsample, learning_rate, max_depth in \
+                            [(
+                            study.best_params['min_child_weight'],
+                            study.best_params['subsample'],
+                            study.best_params['learning_rate'],
+                            study.best_params['max_depth']
+                            )]:
+
+        xgb_params = {'estimator__min_child_weight': min_child_weight,
+                        'estimator__subsample': subsample,
+                        'estimator__learning_rate': learning_rate,
+                        'estimator__max_depth': max_depth,
+                        'estimator__n_estimators': 100,
+                        'colsample_bytree': 0.8,
+                        'silent': 1,
+                        'seed': 0,
+                        'objective': 'reg:linear'}
+
+        model = MultiOutputRegressor(xgb.XGBRegressor(**xgb_params))
+
+        model_name =  'MO-XGB_best'
+        model_name += '_c_wei_'+str(min_child_weight)
+        model_name += '_sam_'+str(np.round(subsample,1))
+        model_name += '_rate_'+str(np.round(np.log(learning_rate),1))
+        model_name += '_dep_'+str(max_depth)
+        model_name += '_n_es_'+str(n_estimators)
+        model_raw, model_std = fit_model_std_raw(model, model_name)
+        model_name = 'XGB'
+        save_summary(model_raw, model_std, model_name)
+
+        save_contour(model_raw, model_name)
+        bayesian_optimization(model_raw, model_name)
+
+        model_raw, model_std = save_regression(model_raw, model_std, model_name)
+
+        if is_gridsearch == True:
+            gridsearch_predict(model_raw, model_std, model_name)
+
+
+    ################# to csv ##############################
+    allmodel_results_raw_df.to_csv(os.path.join(parent_path, 'results', theme_name, 'comparison of all_methods_raw.csv'), index=False)
+    allmodel_results_std_df.to_csv(os.path.join(parent_path, 'results', theme_name, 'comparison of all_methods_std.csv'), index=False)
+
+    summary_results_raw_df.to_csv(os.path.join(parent_path, 'results', theme_name, 'summary of methods_raw.csv'), index=False)
+    summary_results_std_df.to_csv(os.path.join(parent_path, 'results', theme_name, 'summary of methods_std.csv'), index=False)
+
+    ################# to photo ##############################
+    # R2 score
+    plt.figure()
+    #https://own-search-and-study.xyz/2016/08/03/pandas%E3%81%AEplot%E3%81%AE%E5%85%A8%E5%BC%95%E6%95%B0%E3%82%92%E4%BD%BF%E3%81%84%E3%81%93%E3%81%AA%E3%81%99/
+    summary_results_std_df.plot(kind='bar', x='model_name', y =['train_model_score', 'test_model_score'], rot=70, figsize=(12,12), fontsize=18, yticks=[0,0.5,1.0], ylim=[0,1.0])
+    plt.savefig(parent_path / 'results' /  theme_name / 'summary_of_score.png', dpi = 240)
+
+    Image.MAX_IMAGE_PIXELS = None
+    img6 = Image.open(parent_path / 'results' / theme_name / 'summary_of_score.png')
+    img6_resize = img6.resize((photo_size, photo_size), Image.LANCZOS)
+    img6_resize.save(parent_path / 'results' / theme_name / 'summary_of_score_resized.png')
+
+    global image_score
+    image_open = Image.open(parent_path / 'results' / theme_name / 'summary_of_score_resized.png')
+    image_score = ImageTk.PhotoImage(image_open, master=frame2)
+
+    canvas_score.create_image(int(photo_size/2),int(photo_size/2), image=image_score)
+
+    if t_bayesian_val.get().isnumeric == True:
+        target_std_value = list_sc_model[out_n].transform(t_bayesian_val.get())
+    else:
+        target_std_value = 'None'
+
+
+    optimize_dic = {0: 'max', 1: 'min', 2:target_std_value}
+
+    optimize_type = var_bayesian.get()
+    print(optimize_dic[optimize_type])
+
+    #allmodel_bayesian_opt_df.to_csv(os.path.join(parent_path, 'results', theme_name, 'bayesian_opt_' +str(optimize_dic[optimize_type])+  '.csv'), index=False)
+    #######################################################
+
+    print('Sklearn finished!')
 
     ##################### Deep Learning #####################
     if is_dl == False:
