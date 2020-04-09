@@ -10,8 +10,8 @@ tensorflow==1.15.0
 h5py==2.10.0
 optuna==1.0.0
 
-Gpy==1.9.0
-GpyOpt==1.2.5
+Gpy==1.9.9
+GpyOpt==1.2.6
 
 matplotlib==3.1.2
 seaborn==0.9.0
