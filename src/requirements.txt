@@ -6,7 +6,7 @@ scikit-learn==0.22.1
 xgboost==0.90
 category_encoders==2.1.0
 keras==2.3.1
-tensorflow==1.15.0
+tensorflow==1.15.4
 h5py==2.10.0
 optuna==1.0.0
 
