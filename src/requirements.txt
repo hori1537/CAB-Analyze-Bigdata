@@ -18,4 +18,4 @@ seaborn==0.9.0
 graphviz==0.13.2
 dtreeviz==0.8.1
 pydotplus==2.0.2
-pillow==7.0.0
+pillow==9.0.0
